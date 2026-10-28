@@ -553,6 +553,9 @@
               <span class="text-xs font-bold text-slate-300">Mapa Real en Vivo (OpenStreetMap GPS)</span>
             </div>
             <div class="flex items-center space-x-2 text-xs">
+              <button onclick="autoDetectRealLocation()" class="px-2.5 py-1 bg-[#FFB800] hover:bg-[#E5A600] text-black rounded-lg font-black transition flex items-center space-x-1 shadow">
+                <span>🎯 Mi Ubicación Real</span>
+              </button>
               <button onclick="recenterMapOnChild()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFB800] rounded-lg border border-slate-700 font-bold transition">
                 Centrar en Niño
               </button>
@@ -1535,6 +1538,75 @@
       }
     }
 
+    // Auto-detect real location and reverse-geocode address
+    async function autoDetectRealLocation() {
+      if (!('geolocation' in navigator)) {
+        showToast('La geolocalización no está soportada en este navegador.', 'danger');
+        return;
+      }
+
+      showToast('Obteniendo tu posición GPS real...', 'info');
+
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const realLat = pos.coords.latitude;
+        const realLng = pos.coords.longitude;
+        let realAddress = `GPS: ${realLat.toFixed(5)}, ${realLng.toFixed(5)}`;
+
+        try {
+          // Reverse geocoding con OpenStreetMap Nominatim
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${realLat}&lon=${realLng}`);
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            if (geoData.display_name) {
+              realAddress = geoData.display_name.split(',').slice(0, 3).join(',');
+            }
+          }
+        } catch (e) {}
+
+        // Enviar al servidor para actualizar la base de datos
+        try {
+          const child = getActiveChild();
+          const res = await fetch('/api/child/telemetry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              childId: child.id,
+              lat: realLat,
+              lng: realLng,
+              address: realAddress,
+              batteryLevel: child.devices?.[0]?.batteryLevel || 90
+            })
+          });
+
+          if (res.ok) {
+            child.currentLocation = {
+              lat: realLat,
+              lng: realLng,
+              address: realAddress,
+              updatedAt: 'Ahora mismo (GPS Real)',
+              battery: child.devices?.[0]?.batteryLevel || 90,
+              zone: 'Ubicación Real'
+            };
+
+            // Ajustar también las geocercas para que rodeen la ubicación real del usuario
+            if (appData.geofences && appData.geofences.length > 0) {
+              appData.geofences[0].lat = realLat;
+              appData.geofences[0].lng = realLng;
+              appData.geofences[0].address = realAddress;
+            }
+
+            renderLocationTab();
+            recenterMapOnChild();
+            showToast(`Ubicación real fijada: ${realAddress}`, 'success');
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, (err) => {
+        showToast('Por favor permite el acceso a tu ubicación en el navegador.', 'danger');
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+
     // Tab 5: Location & Geofences (REAL OpenStreetMap)
     let osmMap = null;
     let childMarker = null;
@@ -1544,6 +1616,14 @@
       const child = getActiveChild();
       const lat = child.currentLocation?.lat || 40.4168;
       const lng = child.currentLocation?.lng || -3.7038;
+
+      // Auto-detectar posición real si aún está en las coordenadas de Madrid de prueba
+      if ((lat === 40.4168 && lng === -3.7038) || child.currentLocation?.updatedAt === 'Pendiente') {
+        if (!window._hasAutoLocated) {
+          window._hasAutoLocated = true;
+          setTimeout(autoDetectRealLocation, 500);
+        }
+      }
 
       const mapContainer = document.getElementById('realOsmMap');
       if (!mapContainer) return;

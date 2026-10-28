@@ -160,9 +160,18 @@ const server = http.createServer(async (req, res) => {
             ...child.currentLocation,
             lat: body.lat,
             lng: body.lng,
-            updatedAt: 'Ahora mismo',
-            battery: body.batteryLevel || child.currentLocation?.battery || 85
+            address: body.address || child.currentLocation?.address || `GPS: ${body.lat.toFixed(5)}, ${body.lng.toFixed(5)}`,
+            updatedAt: 'Ahora mismo (GPS en vivo)',
+            battery: body.batteryLevel || child.currentLocation?.battery || 85,
+            zone: 'Ubicación GPS'
           };
+
+          // Actualizar la primera geocerca para que rodee la ubicación real
+          if (db.geofences && db.geofences.length > 0) {
+            db.geofences[0].lat = body.lat;
+            db.geofences[0].lng = body.lng;
+            if (body.address) db.geofences[0].address = body.address;
+          }
         }
         saveDatabase(db);
         return sendJson(res, 200, { success: true, instantLockActive: child.instantLockActive, device: dev });
