@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -28,6 +29,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private static final int REQ_CODE_LOCATION = 1002;
     private TextView tvStatus;
     public EditText etServerUrl;
+    public EditText etPairingCode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,21 +38,32 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         tvStatus = findViewById(R.id.tv_status);
         etServerUrl = findViewById(R.id.et_server_url);
+        etPairingCode = findViewById(R.id.et_pairing_code);
+
+        SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        String savedCode = prefs.getString("pairing_code", "123456");
+        String savedUrl = prefs.getString("server_url", "https://segurity.appzplay.online");
+
+        if (etPairingCode != null) etPairingCode.setText(savedCode);
+        if (etServerUrl != null) etServerUrl.setText(savedUrl);
+
+        Button btnSaveCode = findViewById(R.id.btn_save_pairing_code);
+        if (btnSaveCode != null) btnSaveCode.setOnClickListener(this);
 
         Button btnOverlay = findViewById(R.id.btn_overlay_perm);
-        btnOverlay.setOnClickListener(this);
+        if (btnOverlay != null) btnOverlay.setOnClickListener(this);
 
         Button btnAccessibility = findViewById(R.id.btn_accessibility_perm);
-        btnAccessibility.setOnClickListener(this);
+        if (btnAccessibility != null) btnAccessibility.setOnClickListener(this);
 
         Button btnLocation = findViewById(R.id.btn_location_perm);
-        btnLocation.setOnClickListener(this);
+        if (btnLocation != null) btnLocation.setOnClickListener(this);
 
         Button btnAutostart = findViewById(R.id.btn_autostart_perm);
-        btnAutostart.setOnClickListener(this);
+        if (btnAutostart != null) btnAutostart.setOnClickListener(this);
 
         Button btnTest = findViewById(R.id.btn_test_lock);
-        btnTest.setOnClickListener(this);
+        if (btnTest != null) btnTest.setOnClickListener(this);
 
         requestLocationPermissionIfNeeded();
         startCompanionService();
@@ -70,16 +83,19 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     public void scanAndUploadInstalledApps() {
         String serverUrl = etServerUrl.getText().toString().trim();
-        new ScanAppsThread(getPackageManager(), serverUrl).start();
+        String code = etPairingCode != null ? etPairingCode.getText().toString().trim() : "123456";
+        new ScanAppsThread(getPackageManager(), serverUrl, code).start();
     }
 
     public static class ScanAppsThread extends Thread {
         private final PackageManager mPm;
         private final String mServerUrl;
+        private final String mCode;
 
-        public ScanAppsThread(PackageManager pm, String serverUrl) {
+        public ScanAppsThread(PackageManager pm, String serverUrl, String code) {
             mPm = pm;
             mServerUrl = serverUrl;
+            mCode = code != null && !code.isEmpty() ? code : "123456";
         }
 
         @Override
@@ -110,7 +126,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     }
                     jsonArray.append("]");
 
-                    String payload = "{\"apps\":" + jsonArray.toString() + "}";
+                    String payload = "{\"code\":\"" + mCode + "\",\"apps\":" + jsonArray.toString() + "}";
 
                     URL url = new URL(srv + "/api/child/installed-apps");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -130,7 +146,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     if (resCode == 200) {
                         break;
                     }
-                } catch (Exception e) {}
+                } catch (Exception ignored) {}
             }
         }
     }
@@ -147,7 +163,22 @@ public class MainActivity extends Activity implements View.OnClickListener {
     @Override
     public void onClick(View v) {
         int id = v.getId();
-        if (id == R.id.btn_overlay_perm) {
+
+        if (id == R.id.btn_save_pairing_code) {
+            String code = etPairingCode.getText().toString().trim();
+            String srvUrl = etServerUrl.getText().toString().trim();
+            if (code.isEmpty()) code = "123456";
+
+            SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+            prefs.edit()
+                 .putString("pairing_code", code)
+                 .putString("server_url", srvUrl)
+                 .apply();
+
+            Toast.makeText(this, "✅ Código " + code + " guardado con éxito.", Toast.LENGTH_SHORT).show();
+            scanAndUploadInstalledApps();
+
+        } else if (id == R.id.btn_overlay_perm) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 if (!Settings.canDrawOverlays(this)) {
                     Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -157,18 +188,25 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     Toast.makeText(this, "Permiso de superposición ya concedido", Toast.LENGTH_SHORT).show();
                 }
             }
+
         } else if (id == R.id.btn_accessibility_perm) {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
             Toast.makeText(this, "Busca 'Norton Accessibility' y actívalo", Toast.LENGTH_LONG).show();
+
         } else if (id == R.id.btn_location_perm) {
             requestLocationPermissionIfNeeded();
+
         } else if (id == R.id.btn_autostart_perm) {
             openAutostartSettings();
+
         } else if (id == R.id.btn_test_lock) {
-            Intent intent = new Intent(this, LockOverlayService.class);
-            intent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
-            startService(intent);
+            // Iniciar vista previa de bloqueo por 10 segundos
+            Intent intent = new Intent(this, LockActivity.class);
+            intent.putExtra("is_test", true);
+            intent.putExtra("blocked_reason", "Vista Previa de Bloqueo Instantáneo");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
         }
     }
 

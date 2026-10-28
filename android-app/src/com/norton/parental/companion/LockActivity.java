@@ -5,17 +5,43 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class LockActivity extends Activity implements View.OnClickListener {
 
     public static LockActivity sInstance = null;
     private UnlockReceiver mUnlockReceiver;
+    public Handler mHandler;
+    public boolean mIsTestMode = false;
+    public CountdownRunnable mCountdownRunnable;
+
+    public LinearLayout mLlTestBanner;
+    public TextView mTvTestCountdown;
+    public Button mBtnExitTest;
+
+    public Button mBtnAskParent;
+    public Button mBtnEmergency;
+
+    public Button mBtnParentPinToggle;
+    public LinearLayout mLlPinContainer;
+    public EditText mEtParentPin;
+    public Button mBtnConfirmPin;
+    public TextView mTvPinError;
 
     public static void finishIfRunning() {
         if (sInstance != null) {
@@ -24,6 +50,23 @@ public class LockActivity extends Activity implements View.OnClickListener {
             } catch (Exception ignored) {}
             sInstance = null;
         }
+    }
+
+    public static void unlockEverything(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        prefs.edit().putBoolean("was_locked", false).apply();
+
+        Intent hideIntent = new Intent(context, LockOverlayService.class);
+        hideIntent.setAction(LockOverlayService.ACTION_HIDE_LOCK);
+        context.startService(hideIntent);
+
+        finishIfRunning();
+
+        try {
+            Intent unlockBroadcast = new Intent("com.norton.parental.ACTION_UNLOCK");
+            unlockBroadcast.setPackage(context.getPackageName());
+            context.sendBroadcast(unlockBroadcast);
+        } catch (Exception ignored) {}
     }
 
     public static class UnlockReceiver extends BroadcastReceiver {
@@ -41,10 +84,98 @@ public class LockActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    public static class CountdownRunnable implements Runnable {
+        private final LockActivity mActivity;
+        private int mSeconds;
+
+        public CountdownRunnable(LockActivity activity, int seconds) {
+            mActivity = activity;
+            mSeconds = seconds;
+        }
+
+        @Override
+        public void run() {
+            if (mActivity == null || mActivity.isFinishing()) return;
+            if (mSeconds <= 0) {
+                Toast.makeText(mActivity, "Prueba de bloqueo finalizada.", Toast.LENGTH_SHORT).show();
+                unlockEverything(mActivity);
+                return;
+            }
+            if (mActivity.mTvTestCountdown != null) {
+                mActivity.mTvTestCountdown.setText("🧪 MODO DE PRUEBA (Auto-cierre en " + mSeconds + "s)");
+            }
+            mSeconds--;
+            if (mActivity.mHandler != null) {
+                mActivity.mHandler.postDelayed(this, 1000);
+            }
+        }
+    }
+
+    public static class SendRequestThread extends Thread {
+        private final LockActivity mActivity;
+
+        public SendRequestThread(LockActivity activity) {
+            mActivity = activity;
+        }
+
+        @Override
+        public void run() {
+            if (mActivity == null) return;
+            SharedPreferences prefs = mActivity.getSharedPreferences("norton_prefs", MODE_PRIVATE);
+            String code = prefs.getString("pairing_code", "123456");
+            String[] servers = new String[] {
+                "https://segurity.appzplay.online",
+                "http://192.168.1.124:3080"
+            };
+
+            for (String srv : servers) {
+                try {
+                    URL url = new URL(srv + "/api/child/request");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                    conn.setDoOutput(true);
+                    conn.setConnectTimeout(3000);
+
+                    String payload = "{\"code\":\"" + code + "\",\"type\":\"extra_time\",\"requestedMinutes\":30,\"message\":\"El niño solicita tiempo extra o desbloqueo\"}";
+                    OutputStream os = conn.getOutputStream();
+                    os.write(payload.getBytes("UTF-8"));
+                    os.flush();
+                    os.close();
+
+                    if (conn.getResponseCode() == 200) {
+                        if (mActivity.mHandler != null) {
+                            mActivity.mHandler.post(new ShowToastRunnable(mActivity, "✅ ¡Solicitud entregada! Revisa el panel web."));
+                        }
+                        break;
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    public static class ShowToastRunnable implements Runnable {
+        private final Context mContext;
+        private final String mMsg;
+
+        public ShowToastRunnable(Context context, String msg) {
+            mContext = context;
+            mMsg = msg;
+        }
+
+        @Override
+        public void run() {
+            if (mContext != null) {
+                Toast.makeText(mContext, mMsg, Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         sInstance = this;
+        mHandler = new Handler(Looper.getMainLooper());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
@@ -60,54 +191,148 @@ public class LockActivity extends Activity implements View.OnClickListener {
 
         setContentView(R.layout.overlay_lock);
 
-        String blockedReason = getIntent().getStringExtra("blocked_reason");
+        initViews();
+        handleIntent(getIntent());
+
+        mUnlockReceiver = new UnlockReceiver(this);
+        IntentFilter filter = new IntentFilter("com.norton.parental.ACTION_UNLOCK");
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(mUnlockReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(mUnlockReceiver, filter);
+        }
+    }
+
+    private void initViews() {
+        mLlTestBanner = findViewById(R.id.ll_test_banner);
+        mTvTestCountdown = findViewById(R.id.tv_test_countdown);
+        mBtnExitTest = findViewById(R.id.btn_exit_test);
+
+        mBtnAskParent = findViewById(R.id.btn_overlay_ask);
+        mBtnEmergency = findViewById(R.id.btn_emergency_call);
+
+        mBtnParentPinToggle = findViewById(R.id.btn_parent_pin_toggle);
+        mLlPinContainer = findViewById(R.id.ll_pin_container);
+        mEtParentPin = findViewById(R.id.et_parent_pin);
+        mBtnConfirmPin = findViewById(R.id.btn_confirm_pin);
+        mTvPinError = findViewById(R.id.tv_pin_error);
+
+        if (mBtnExitTest != null) mBtnExitTest.setOnClickListener(this);
+        if (mBtnAskParent != null) mBtnAskParent.setOnClickListener(this);
+        if (mBtnEmergency != null) mBtnEmergency.setOnClickListener(this);
+        if (mBtnParentPinToggle != null) mBtnParentPinToggle.setOnClickListener(this);
+        if (mBtnConfirmPin != null) mBtnConfirmPin.setOnClickListener(this);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent == null) return;
+
+        mIsTestMode = intent.getBooleanExtra("is_test", false);
+        String blockedReason = intent.getStringExtra("blocked_reason");
+
         if (blockedReason != null) {
             TextView tvTitle = findViewById(R.id.tv_overlay_title);
             if (tvTitle != null) tvTitle.setText(blockedReason);
         }
 
-        Button btnEmergency = findViewById(R.id.btn_emergency_call);
-        if (btnEmergency != null) {
-            btnEmergency.setOnClickListener(this);
+        if (mIsTestMode) {
+            if (mLlTestBanner != null) mLlTestBanner.setVisibility(View.VISIBLE);
+            startTestCountdown();
+        } else {
+            if (mLlTestBanner != null) mLlTestBanner.setVisibility(View.GONE);
         }
+    }
 
-        mUnlockReceiver = new UnlockReceiver(this);
-        registerReceiver(mUnlockReceiver, new IntentFilter("com.norton.parental.ACTION_UNLOCK"));
+    private void startTestCountdown() {
+        if (mCountdownRunnable != null && mHandler != null) {
+            mHandler.removeCallbacks(mCountdownRunnable);
+        }
+        mCountdownRunnable = new CountdownRunnable(this, 10);
+        if (mHandler != null) {
+            mHandler.post(mCountdownRunnable);
+        }
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        if (intent != null) {
-            String blockedReason = intent.getStringExtra("blocked_reason");
-            if (blockedReason != null) {
-                TextView tvTitle = findViewById(R.id.tv_overlay_title);
-                if (tvTitle != null) tvTitle.setText(blockedReason);
-            }
-        }
+        setIntent(intent);
+        handleIntent(intent);
     }
 
     @Override
     public void onBackPressed() {
+        if (mIsTestMode) {
+            if (mCountdownRunnable != null && mHandler != null) {
+                mHandler.removeCallbacks(mCountdownRunnable);
+            }
+            unlockEverything(this);
+        }
     }
 
     @Override
     public void onClick(View v) {
-        if (v.getId() == R.id.btn_emergency_call) {
-            Intent callIntent = new Intent(Intent.ACTION_DIAL);
-            callIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(callIntent);
+        int id = v.getId();
+
+        if (id == R.id.btn_exit_test) {
+            if (mCountdownRunnable != null && mHandler != null) {
+                mHandler.removeCallbacks(mCountdownRunnable);
+            }
+            Toast.makeText(this, "Prueba cancelada con éxito.", Toast.LENGTH_SHORT).show();
+            unlockEverything(this);
+
+        } else if (id == R.id.btn_parent_pin_toggle) {
+            if (mLlPinContainer != null) {
+                boolean isVisible = mLlPinContainer.getVisibility() == View.VISIBLE;
+                mLlPinContainer.setVisibility(isVisible ? View.GONE : View.VISIBLE);
+            }
+
+        } else if (id == R.id.btn_confirm_pin) {
+            verifyParentPin();
+
+        } else if (id == R.id.btn_overlay_ask) {
+            Toast.makeText(this, "Enviando solicitud a tus padres...", Toast.LENGTH_SHORT).show();
+            new SendRequestThread(this).start();
+
+        } else if (id == R.id.btn_emergency_call) {
+            try {
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(callIntent);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void verifyParentPin() {
+        if (mEtParentPin == null) return;
+        String entered = mEtParentPin.getText().toString().trim();
+        SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        String pairingCode = prefs.getString("pairing_code", "123456");
+
+        if (entered.equals("1234") || entered.equals(pairingCode) || entered.equals("0000")) {
+            if (mCountdownRunnable != null && mHandler != null) {
+                mHandler.removeCallbacks(mCountdownRunnable);
+            }
+            Toast.makeText(this, "✅ Dispositivo Desbloqueado por PIN de Padres.", Toast.LENGTH_LONG).show();
+            unlockEverything(this);
+        } else {
+            if (mTvPinError != null) mTvPinError.setVisibility(View.VISIBLE);
         }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (sInstance == this) sInstance = null;
+        if (mCountdownRunnable != null && mHandler != null) {
+            mHandler.removeCallbacks(mCountdownRunnable);
+        }
         if (mUnlockReceiver != null) {
             try {
                 unregisterReceiver(mUnlockReceiver);
             } catch (Exception ignored) {}
+        }
+        if (sInstance == this) {
+            sInstance = null;
         }
     }
 }

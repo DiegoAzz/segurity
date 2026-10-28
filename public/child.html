@@ -344,6 +344,10 @@
       return { devName, os };
     }
 
+    const urlParams = new URLSearchParams(window.location.search);
+    let pairingCode = urlParams.get('code') || localStorage.getItem('child_pairing_code') || '123456';
+    if (urlParams.get('code')) localStorage.setItem('child_pairing_code', urlParams.get('code'));
+
     // Send Telemetry to server
     async function reportTelemetry() {
       const battery = await readBattery();
@@ -355,6 +359,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            code: pairingCode,
             childId: currentChildId,
             deviceId: 'real_phone_' + (localStorage.getItem('norton_dev_id') || (localStorage.setItem('norton_dev_id', Date.now()), Date.now())),
             deviceName: device.devName,
@@ -370,7 +375,7 @@
     // Main Polling Loop: Detects Instant Lock from parents!
     async function checkChildStatus() {
       try {
-        const res = await fetch('/api/data');
+        const res = await fetch(`/api/data?code=${pairingCode}`);
         if (!res.ok) throw new Error('Offline');
         const data = await res.json();
         

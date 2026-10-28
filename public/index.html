@@ -119,7 +119,30 @@
           <i data-lucide="lock" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           <span id="instantLockText">🛑 Bloquear Todo</span>
         </button>
+
+        <!-- Client Account Badge & Logout -->
+        <div class="flex items-center space-x-1.5 pl-2 border-l border-slate-700/60">
+          <div class="hidden sm:flex flex-col text-right">
+            <span id="navClientName" class="text-xs font-bold text-white leading-tight">Familia</span>
+            <span id="navClientCode" class="text-[10px] text-amber-400 font-extrabold leading-tight">PIN: 123456</span>
+          </div>
+          <button onclick="handleLogout()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition" title="Cerrar Sesión">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
+    </div>
+
+    <!-- Impersonation Banner (Super Admin) -->
+    <div id="impersonationBanner" class="hidden bg-amber-500 text-black px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md">
+      <div class="flex items-center space-x-2">
+        <span>👑 MODO ADMINISTRADOR:</span>
+        <span id="impersonationDetails">Supervisando cuenta cliente</span>
+      </div>
+      <a href="/admin" class="px-3 py-1 bg-black text-amber-300 rounded-lg font-bold hover:bg-slate-900 transition flex items-center space-x-1">
+        <span>Volver al Panel de Alquiler</span>
+        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+      </a>
     </div>
 
     <!-- Mobile Child Selector -->
@@ -1027,12 +1050,75 @@
 
     let activeTab = 'overview';
 
+    async function authFetch(url, options = {}) {
+      const token = localStorage.getItem('norton_token');
+      const urlParams = new URLSearchParams(window.location.search);
+      const asClient = urlParams.get('asClient') || localStorage.getItem('norton_impersonate');
+      
+      if (!options.headers) options.headers = {};
+      if (token) options.headers['Authorization'] = `Bearer ${token}`;
+      if (asClient) {
+        if (url.includes('?')) {
+          url += `&asClient=${asClient}`;
+        } else {
+          url += `?asClient=${asClient}`;
+        }
+      }
+      return fetch(url, options);
+    }
+
+    function handleLogout() {
+      const token = localStorage.getItem('norton_token');
+      if (token) {
+        fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+      }
+      localStorage.removeItem('norton_token');
+      localStorage.removeItem('norton_user');
+      localStorage.removeItem('norton_impersonate');
+      window.location.href = '/login';
+    }
+
     // Fetch initial data
     async function loadData() {
+      const token = localStorage.getItem('norton_token');
+      if (!token) {
+        window.location.href = '/login';
+        return;
+      }
+
       try {
-        const res = await fetch('/api/data');
+        const res = await authFetch('/api/data');
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem('norton_token');
+          window.location.href = '/login';
+          return;
+        }
         if (!res.ok) throw new Error('Error de conexión con el servidor');
         appData = await res.json();
+
+        // Actualizar datos del cliente en la barra superior
+        if (appData.clientInfo) {
+          const navName = document.getElementById('navClientName');
+          const navCode = document.getElementById('navClientCode');
+          if (navName) navName.innerText = appData.clientInfo.name || 'Familia';
+          if (navCode) navCode.innerText = `PIN: ${appData.clientInfo.pairingCode || '123456'}`;
+        }
+
+        // Revisar impersonación de Super Admin
+        const urlParams = new URLSearchParams(window.location.search);
+        const asClient = urlParams.get('asClient') || localStorage.getItem('norton_impersonate');
+        const userStr = localStorage.getItem('norton_user');
+        const userObj = userStr ? JSON.parse(userStr) : null;
+
+        if (userObj && userObj.role === 'admin' && asClient) {
+          const banner = document.getElementById('impersonationBanner');
+          const details = document.getElementById('impersonationDetails');
+          if (banner) banner.classList.remove('hidden');
+          if (details && appData.clientInfo) {
+            details.innerText = `Supervisando a "${appData.clientInfo.name}" (Código de Vinculación: ${appData.clientInfo.pairingCode})`;
+          }
+        }
+
         renderAll();
       } catch (err) {
         console.error('Error cargando datos:', err);
@@ -1085,7 +1171,7 @@
 
     async function selectChild(childId) {
       try {
-        const res = await fetch('/api/children/select', {
+        const res = await authFetch('/api/children/select', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId })
@@ -1123,7 +1209,7 @@
       const child = getActiveChild();
       const targetState = forceState !== undefined ? forceState : !child.instantLockActive;
       try {
-        const res = await fetch('/api/instant-lock', {
+        const res = await authFetch('/api/instant-lock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ all: true, locked: targetState })
@@ -1147,7 +1233,7 @@
     async function addExtraTime(minutes) {
       const child = getActiveChild();
       try {
-        const res = await fetch('/api/time/add', {
+        const res = await authFetch('/api/time/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: child.id, minutes, unlockIfFull: true })
@@ -1332,7 +1418,7 @@
       const child = getActiveChild();
       const val = document.getElementById('dailyLimitSlider').value;
       try {
-        const res = await fetch('/api/time/limit', {
+        const res = await authFetch('/api/time/limit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: child.id, dailyLimitMinutes: Number(val) })
@@ -1350,7 +1436,7 @@
     async function toggleSchoolMode(checked) {
       const child = getActiveChild();
       try {
-        const res = await fetch('/api/time/school', {
+        const res = await authFetch('/api/time/school', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: child.id, active: checked })
@@ -1431,7 +1517,7 @@
     async function toggleSafeSearch(checked) {
       const child = getActiveChild();
       try {
-        const res = await fetch('/api/web/safesearch', {
+        const res = await authFetch('/api/web/safesearch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: child.id, enabled: checked })
@@ -1447,7 +1533,7 @@
 
     async function updateWebCategory(categoryId, action) {
       try {
-        const res = await fetch('/api/web/category', {
+        const res = await authFetch('/api/web/category', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ categoryId, action })
@@ -1470,7 +1556,7 @@
       if (!domain) return showToast('Escribe un dominio válido', 'danger');
 
       try {
-        const res = await fetch('/api/web/rule', {
+        const res = await authFetch('/api/web/rule', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ domain, policy })
@@ -1489,7 +1575,7 @@
 
     async function deleteCustomRule(id) {
       try {
-        const res = await fetch('/api/web/rule', {
+        const res = await authFetch('/api/web/rule', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'delete', id })
@@ -1565,7 +1651,7 @@
 
     async function updateAppPolicy(appId, action, limit = 30) {
       try {
-        const res = await fetch('/api/apps/action', {
+        const res = await authFetch('/api/apps/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ appId, action, dailyLimitMinutes: limit })
@@ -1608,7 +1694,7 @@
     async function detectIpLocation() {
       try {
         let lat = null, lng = null, address = '';
-        const res = await fetch('/api/ip-location');
+        const res = await authFetch('/api/ip-location');
         if (res.ok) {
           const data = await res.json();
           if (data.lat && data.lng) {
@@ -1653,7 +1739,7 @@
 
       try {
         const child = getActiveChild();
-        const res = await fetch('/api/child/telemetry', {
+        const res = await authFetch('/api/child/telemetry', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1920,7 +2006,7 @@
 
     async function respondRequest(requestId, decision) {
       try {
-        const res = await fetch('/api/requests/respond', {
+        const res = await authFetch('/api/requests/respond', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ requestId, decision })
@@ -1987,7 +2073,7 @@
       resBox.innerHTML = `<span class="text-slate-400">Consultando motor de filtrado Norton...</span>`;
 
       try {
-        const res = await fetch('/api/child/browse', {
+        const res = await authFetch('/api/child/browse', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: getActiveChild().id, url })
@@ -2061,7 +2147,7 @@
     async function triggerChildSOS() {
       const child = getActiveChild();
       try {
-        const res = await fetch('/api/child/sos', {
+        const res = await authFetch('/api/child/sos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: child.id })
@@ -2119,7 +2205,7 @@
       }
 
       try {
-        const res = await fetch('/api/child/request', {
+        const res = await authFetch('/api/child/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2255,7 +2341,7 @@
     // Auto-refresh data every 2.5s for real-time parent sync
     setInterval(async () => {
       try {
-        const res = await fetch('/api/data');
+        const res = await authFetch('/api/data');
         if (res.ok) {
           const newData = await res.json();
           // Detect if a new pending request arrived

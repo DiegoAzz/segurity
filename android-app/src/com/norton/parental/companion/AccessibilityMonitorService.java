@@ -2,6 +2,7 @@ package com.norton.parental.companion;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
@@ -49,10 +50,45 @@ public class AccessibilityMonitorService extends AccessibilityService {
         return false;
     }
 
+    private static boolean sRebootChecked = false;
+    private long mLastServiceCheckTime = 0;
+
+    public void ensureLockServiceRunning() {
+        try {
+            Intent serviceIntent = new Intent(this, LockOverlayService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public void checkAndReportReboot() {
+        if (sRebootChecked) return;
+        sRebootChecked = true;
+
+        long uptimeMs = android.os.SystemClock.elapsedRealtime();
+        // Si el tiempo de encendido del teléfono es menor a 3 minutos (180s), se acaba de reiniciar
+        if (uptimeMs < 180000) {
+            new Thread(new BootReceiver.SendRebootAuditTask(this)).start();
+        }
+
+        // Si antes del reinicio estaba bloqueado, reactivar bloqueo inmediatamente
+        android.content.SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        if (prefs.getBoolean("was_locked", false)) {
+            Intent lockIntent = new Intent(this, LockOverlayService.class);
+            lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
+            startService(lockIntent);
+        }
+    }
+
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
         mHandler = new Handler(Looper.getMainLooper());
+        ensureLockServiceRunning();
+        checkAndReportReboot();
         mSyncRunnable = new SyncRunnable(this);
         mHandler.post(mSyncRunnable);
     }
@@ -84,6 +120,9 @@ public class AccessibilityMonitorService extends AccessibilityService {
 
         @Override
         public void run() {
+            android.content.SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
+            String pairingCode = prefs.getString("pairing_code", "123456");
+
             String[] servers = new String[] {
                 mService.mServerBaseUrl,
                 "https://segurity.appzplay.online",
@@ -93,7 +132,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
             for (String serverUrl : servers) {
                 if (serverUrl == null || serverUrl.isEmpty()) continue;
                 try {
-                    URL url = new URL(serverUrl + "/api/data");
+                    URL url = new URL(serverUrl + "/api/data?code=" + pairingCode);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
                     conn.setConnectTimeout(1800);
@@ -191,11 +230,13 @@ public class AccessibilityMonitorService extends AccessibilityService {
         private final String mServerBaseUrl;
         private final String mBlockedItem;
         private final String mReason;
+        private final String mCode;
 
-        public ReportWebBlockThread(String serverBaseUrl, String blockedItem, String reason) {
+        public ReportWebBlockThread(String serverBaseUrl, String blockedItem, String reason, String code) {
             mServerBaseUrl = serverBaseUrl;
             mBlockedItem = blockedItem;
             mReason = reason;
+            mCode = code != null && !code.isEmpty() ? code : "123456";
         }
 
         @Override
@@ -217,7 +258,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
                     conn.setConnectTimeout(3000);
                     conn.setReadTimeout(3000);
 
-                    String payload = "{\"item\":\"" + mBlockedItem + "\",\"reason\":\"" + mReason + "\"}";
+                    String payload = "{\"code\":\"" + mCode + "\",\"item\":\"" + mBlockedItem + "\",\"reason\":\"" + mReason + "\"}";
                     OutputStream os = conn.getOutputStream();
                     os.write(payload.getBytes("UTF-8"));
                     os.flush();
@@ -233,6 +274,13 @@ public class AccessibilityMonitorService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        checkAndReportReboot();
+        long now = System.currentTimeMillis();
+        if (now - mLastServiceCheckTime > 15000) {
+            mLastServiceCheckTime = now;
+            ensureLockServiceRunning();
+        }
+
         if (event == null || event.getPackageName() == null) return;
         final String pkg = event.getPackageName().toString();
 
@@ -381,7 +429,9 @@ public class AccessibilityMonitorService extends AccessibilityService {
         }
 
         // 4. Reportar alerta en tiempo real al panel de padres
-        new ReportWebBlockThread(mServerBaseUrl, matched, "Filtro Web / Contenido para Adultos").start();
+        android.content.SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        String pairingCode = prefs.getString("pairing_code", "123456");
+        new ReportWebBlockThread(mServerBaseUrl, matched, "Filtro Web / Contenido para Adultos", pairingCode).start();
     }
 
     private String scanNodeForBlockedText(AccessibilityNodeInfo node, int depth) {

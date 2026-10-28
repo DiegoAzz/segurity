@@ -18,7 +18,7 @@
             android:text="🛡️"
             android:textSize="44sp"
             android:layout_marginTop="10dp"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="6dp" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -34,7 +34,7 @@
             android:text="Agente Nativo de Control Parental"
             android:textSize="12sp"
             android:textColor="#FFB800"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="14dp" />
 
         <TextView
             android:id="@+id/tv_status"
@@ -48,6 +48,68 @@
             android:padding="12dp"
             android:layout_marginBottom="14dp" />
 
+        <!-- Tarjeta de Vinculación Familiar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#161F30"
+            android:padding="14dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Código de Familia (6 dígitos):"
+                android:textColor="#FFB800"
+                android:textStyle="bold"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Escribe el código que te dio el administrador o tu panel:"
+                android:textColor="#94A3B8"
+                android:textSize="11sp"
+                android:layout_marginBottom="6dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/et_pairing_code"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="#0B0F19"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:padding="10dp"
+                    android:text="123456"
+                    android:hint="Ej: 123456"
+                    android:textColorHint="#64748B"
+                    android:gravity="center"
+                    android:inputType="number"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btn_save_pairing_code"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Guardar"
+                    android:backgroundTint="#FFB800"
+                    android:textColor="#000000"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Permisos Esenciales -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -69,7 +131,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="2. Permiso de Accesibilidad (Bloqueo YouTube):"
+            android:text="2. Permiso de Accesibilidad (Bloqueo YouTube y Pornografía):"
             android:textColor="#94A3B8"
             android:textSize="11sp"
             android:layout_marginBottom="4dp" />
@@ -136,16 +198,25 @@
             android:textSize="12sp"
             android:padding="10dp"
             android:text="https://segurity.appzplay.online"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="14dp" />
 
         <Button
             android:id="@+id/btn_test_lock"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Probar Pantalla de Bloqueo"
+            android:text="Probar Pantalla de Bloqueo (Vista Previa 10s)"
             android:backgroundTint="#EF4444"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="* Muestra cómo se ve el bloqueo. Se puede cerrar en cualquier momento con el botón de salir o con el PIN 1234."
+            android:textColor="#64748B"
+            android:textSize="10sp"
+            android:gravity="center"
             android:layout_marginBottom="16dp" />
 
     </LinearLayout>

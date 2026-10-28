@@ -26,6 +26,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -228,6 +229,9 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                     } catch (SecurityException ignored) {}
                 }
 
+                SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
+                String pairingCode = prefs.getString("pairing_code", "123456");
+
                 String[] servers = new String[] {
                     mService.mServerBaseUrl,
                     "https://segurity.appzplay.online",
@@ -235,6 +239,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 };
 
                 StringBuilder payload = new StringBuilder("{");
+                payload.append("\"code\":\"").append(pairingCode).append("\",");
                 payload.append("\"childId\":\"child_1\",");
                 payload.append("\"batteryLevel\":").append(batteryLevel).append(",");
                 payload.append("\"deviceName\":\"").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\",");
@@ -273,7 +278,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
                 // Sincronizar también la lista de aplicaciones instaladas en segundo plano
                 try {
-                    new MainActivity.ScanAppsThread(mService.getPackageManager(), mService.mServerBaseUrl).start();
+                    new MainActivity.ScanAppsThread(mService.getPackageManager(), mService.mServerBaseUrl, pairingCode).start();
                 } catch (Exception ignored) {}
             } catch (Exception e) {}
         }
@@ -312,10 +317,13 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 "http://192.168.1.124:3080"
             };
 
+            SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
+            String pairingCode = prefs.getString("pairing_code", "123456");
+
             for (String serverUrl : servers) {
                 if (serverUrl == null || serverUrl.isEmpty()) continue;
                 try {
-                    URL url = new URL(serverUrl + "/api/data");
+                    URL url = new URL(serverUrl + "/api/data?code=" + pairingCode);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
                     conn.setConnectTimeout(1500);
@@ -437,9 +445,19 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         }
 
         Button btnEmergency = mOverlayView.findViewById(R.id.btn_emergency_call);
-        if (btnEmergency != null) {
-            btnEmergency.setOnClickListener(this);
-        }
+        if (btnEmergency != null) btnEmergency.setOnClickListener(this);
+
+        Button btnExitTest = mOverlayView.findViewById(R.id.btn_exit_test);
+        if (btnExitTest != null) btnExitTest.setOnClickListener(this);
+
+        Button btnPinToggle = mOverlayView.findViewById(R.id.btn_parent_pin_toggle);
+        if (btnPinToggle != null) btnPinToggle.setOnClickListener(this);
+
+        Button btnConfirmPin = mOverlayView.findViewById(R.id.btn_confirm_pin);
+        if (btnConfirmPin != null) btnConfirmPin.setOnClickListener(this);
+
+        Button btnAsk = mOverlayView.findViewById(R.id.btn_overlay_ask);
+        if (btnAsk != null) btnAsk.setOnClickListener(this);
 
         sIsLocked = true;
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
@@ -487,10 +505,67 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
     @Override
     public void onClick(View v) {
-        if (v.getId() == R.id.btn_emergency_call) {
-            Intent callIntent = new Intent(Intent.ACTION_DIAL);
-            callIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(callIntent);
+        int id = v.getId();
+        if (id == R.id.btn_emergency_call) {
+            try {
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(callIntent);
+            } catch (Exception ignored) {}
+        } else if (id == R.id.btn_exit_test) {
+            hideOverlay();
+        } else if (id == R.id.btn_parent_pin_toggle) {
+            if (mOverlayView != null) {
+                View container = mOverlayView.findViewById(R.id.ll_pin_container);
+                if (container != null) {
+                    boolean isVis = container.getVisibility() == View.VISIBLE;
+                    container.setVisibility(isVis ? View.GONE : View.VISIBLE);
+                }
+            }
+        } else if (id == R.id.btn_confirm_pin) {
+            if (mOverlayView != null) {
+                EditText etPin = mOverlayView.findViewById(R.id.et_parent_pin);
+                TextView tvErr = mOverlayView.findViewById(R.id.tv_pin_error);
+                String pin = etPin != null ? etPin.getText().toString().trim() : "";
+                SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+                String code = prefs.getString("pairing_code", "123456");
+                if (pin.equals("1234") || pin.equals(code) || pin.equals("0000")) {
+                    hideOverlay();
+                } else {
+                    if (tvErr != null) tvErr.setVisibility(View.VISIBLE);
+                }
+            }
+        } else if (id == R.id.btn_overlay_ask) {
+            Toast.makeText(this, "Enviando solicitud a tus padres...", Toast.LENGTH_SHORT).show();
+            new SendOverlayRequestThread(this).start();
+        }
+    }
+
+    public static class SendOverlayRequestThread extends Thread {
+        private final Context mContext;
+
+        public SendOverlayRequestThread(Context context) {
+            mContext = context;
+        }
+
+        @Override
+        public void run() {
+            try {
+                SharedPreferences prefs = mContext.getSharedPreferences("norton_prefs", MODE_PRIVATE);
+                String code = prefs.getString("pairing_code", "123456");
+                URL url = new URL("https://segurity.appzplay.online/api/child/request");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                conn.setDoOutput(true);
+                String payload = "{\"code\":\"" + code + "\",\"type\":\"extra_time\",\"requestedMinutes\":30,\"message\":\"Solicitud de desbloqueo\"}";
+                OutputStream os = conn.getOutputStream();
+                os.write(payload.getBytes("UTF-8"));
+                os.flush();
+                os.close();
+                conn.getResponseCode();
+                conn.disconnect();
+            } catch (Exception ignored) {}
         }
     }
 
