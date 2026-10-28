@@ -77,7 +77,9 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 .setSmallIcon(android.R.drawable.ic_lock_lock)
                 .build();
 
-        startForeground(101, notification);
+        try {
+            startForeground(101, notification);
+        } catch (Throwable ignored) {}
 
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         if (prefs.getBoolean("was_locked", false)) {
