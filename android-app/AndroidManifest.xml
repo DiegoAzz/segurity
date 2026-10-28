@@ -38,6 +38,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Pantalla de Bloqueo Inquebrantable Fullscreen -->
+        <activity
+            android:name=".LockActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" />
+
         <!-- Servicio de Bloqueo por Superposición (Tapa YouTube y Apps) -->
         <service
             android:name=".LockOverlayService"

@@ -128,8 +128,12 @@ const server = http.createServer(async (req, res) => {
         }
       });
 
+      const activeChild = db.children.find(c => c.id === db.activeChildId) || db.children[0];
+      const instantLockActive = activeChild ? !!activeChild.instantLockActive : false;
+
       return sendJson(res, 200, {
         ...db,
+        instantLockActive,
         blockedPackages,
         blockedDomains,
         blockedKeywords,

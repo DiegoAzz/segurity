@@ -307,13 +307,25 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                         String json = sb.toString();
 
                         boolean lockStatus = false;
-                        int idx = json.indexOf("\"instantLockActive\":");
-                        if (idx != -1) {
-                            int start = idx + 20;
-                            String sub = json.substring(start, Math.min(start + 5, json.length()));
-                            if (sub.startsWith("true")) {
-                                lockStatus = true;
+                        try {
+                            org.json.JSONObject root = new org.json.JSONObject(json);
+                            if (root.has("instantLockActive")) {
+                                lockStatus = root.optBoolean("instantLockActive", false);
                             }
+                            if (!lockStatus && root.has("children")) {
+                                org.json.JSONArray children = root.optJSONArray("children");
+                                if (children != null && children.length() > 0) {
+                                    for (int i = 0; i < children.length(); i++) {
+                                        org.json.JSONObject c = children.optJSONObject(i);
+                                        if (c != null && c.optBoolean("instantLockActive", false)) {
+                                            lockStatus = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (Exception parseEx) {
+                            lockStatus = json.contains("\"instantLockActive\":true") || json.contains("\"instantLockActive\": true");
                         }
 
                         if (mService.mHandler != null) {
@@ -404,31 +416,48 @@ public class LockOverlayService extends Service implements View.OnClickListener 
             btnEmergency.setOnClickListener(this);
         }
 
+        sIsLocked = true;
+        SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        prefs.edit().putBoolean("was_locked", true).apply();
+
         try {
             mWindowManager.addView(mOverlayView, params);
-            sIsLocked = true;
+        } catch (Exception e) {}
 
-            SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
-            prefs.edit().putBoolean("was_locked", true).apply();
+        // Siempre lanzar también LockActivity en pantalla completa por seguridad total
+        try {
+            Intent lockActIntent = new Intent(this, LockActivity.class);
+            lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            if (customMessage != null) {
+                lockActIntent.putExtra("blocked_reason", customMessage);
+            }
+            startActivity(lockActIntent);
+        } catch (Exception ignored) {}
 
+        try {
             Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
             if (v != null) {
                 v.vibrate(500);
             }
-        } catch (Exception e) {}
+        } catch (Exception ignored) {}
     }
 
     public void hideOverlay() {
-        if (sIsLocked && mOverlayView != null) {
+        sIsLocked = false;
+        SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        prefs.edit().putBoolean("was_locked", false).apply();
+
+        if (mOverlayView != null) {
             try {
                 mWindowManager.removeView(mOverlayView);
             } catch (Exception e) {}
             mOverlayView = null;
-            sIsLocked = false;
-
-            SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
-            prefs.edit().putBoolean("was_locked", false).apply();
         }
+
+        try {
+            LockActivity.finishIfRunning();
+            sendBroadcast(new Intent("com.norton.parental.ACTION_UNLOCK"));
+        } catch (Exception ignored) {}
     }
 
     @Override
