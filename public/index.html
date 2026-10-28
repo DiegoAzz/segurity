@@ -878,47 +878,61 @@
 
   <!-- ================= MODAL: CONNECT REAL PHONE QR ================= -->
   <div id="qrModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-[#161F30] border border-[#283548] rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl text-center">
+    <div class="bg-[#161F30] border border-[#283548] rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl text-center">
       <div class="flex items-center justify-between border-b border-[#283548] pb-3">
         <div class="flex items-center space-x-2 text-left">
           <div class="w-8 h-8 rounded-xl bg-[#FFB800] text-black flex items-center justify-center font-black">
             📱
           </div>
           <div>
-            <h3 class="font-display font-black text-base text-white">Vincular Celular Real</h3>
-            <p class="text-[11px] text-slate-400">Prueba el bloqueo instantáneo en tu mano</p>
+            <h3 class="font-display font-black text-base text-white">Instalar en tu Celular</h3>
+            <p class="text-[11px] text-slate-400">Escanea y descarga la APK automáticamente</p>
           </div>
         </div>
         <button onclick="closeQrModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
+      <!-- Selector de Modo de Código QR -->
+      <div class="flex rounded-xl bg-slate-900 p-1 border border-slate-800 text-xs font-bold">
+        <button onclick="setQrMode('apk')" id="tabQrApk" class="flex-1 py-1.5 rounded-lg bg-[#FFB800] text-black transition">
+          📲 Descargar APK Nativa
+        </button>
+        <button onclick="setQrMode('web')" id="tabQrWeb" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
+          🌐 Abrir en Navegador
+        </button>
+      </div>
+
       <!-- QR Code Image -->
       <div class="p-4 bg-white rounded-2xl inline-block mx-auto shadow-xl">
-        <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=http://192.168.1.124:3080/child" alt="QR Code" class="w-48 h-48 mx-auto">
+        <img id="qrCodeImg" src="" alt="QR Code" class="w-48 h-48 mx-auto">
       </div>
 
       <div class="space-y-2 text-left bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 text-xs">
-        <div class="font-bold text-[#FFB800] flex items-center space-x-1.5">
-          <i data-lucide="info" class="w-4 h-4"></i>
-          <span>Pasos para probar en tu celular:</span>
+        <div class="font-bold text-[#FFB800] flex items-center space-x-1.5" id="qrInstructionTitle">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span>Descarga directa de la aplicación:</span>
         </div>
-        <ol class="list-decimal list-inside space-y-1 text-slate-300">
-          <li>Asegúrate de que tu celular esté conectado a la <b>misma red Wi-Fi</b> de esta PC.</li>
-          <li>Abre la cámara de tu teléfono y escanea este código QR.</li>
-          <li>O abre el navegador de tu celular y escribe directamente:</li>
-        </ol>
+        <p class="text-slate-300 text-xs" id="qrInstructionText">
+          Abre la cámara de tu celular y apunta al código QR. Tu teléfono <b>descargará la APK automáticamente</b> para instalarla de una vez.
+        </p>
         <div class="p-2 rounded-xl bg-black font-mono text-[#FFB800] text-center font-bold break-all select-all text-xs" id="qrDirectUrlText">
-          http://192.168.1.124:3080/child
+          <!-- URL dinamica -->
         </div>
       </div>
 
-      <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200 text-left">
-        💡 <b>Cómo funciona la prueba:</b> Una vez abierto en tu celular, haz clic en el botón <b>"Pausa Instantánea"</b> en esta pantalla de la computadora. ¡Verás cómo la pantalla de tu celular vibra, suena y se bloquea al instante!
+      <div class="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/20 text-[11px] text-emerald-300 text-left flex items-start space-x-2">
+        <span>✅</span>
+        <span><b>Sin límites de red:</b> Funciona desde cualquier lugar (datos móviles 4G/5G o cualquier Wi-Fi).</span>
       </div>
 
-      <button onclick="closeQrModal()" class="w-full py-2.5 rounded-xl bg-[#FFB800] text-black font-extrabold text-xs shadow-md">
-        Entendido
-      </button>
+      <div class="flex space-x-2">
+        <a id="qrDirectDownloadBtn" href="/norton-companion.apk" download="norton-companion.apk" class="flex-1 py-2.5 rounded-xl bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs shadow-md text-center">
+          Descargar APK a mi PC
+        </a>
+        <button onclick="closeQrModal()" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">
+          Cerrar
+        </button>
+      </div>
     </div>
   </div>
 
@@ -2086,13 +2100,41 @@
       }, 4000);
     }
 
-    // QR Modal
-    function openQrModal() {
-      const url = appData.serverNetwork?.mobileChildUrl || `http://${window.location.hostname}:3080/child`;
-      document.getElementById('qrDirectUrlText').innerText = url;
-      document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
-      document.getElementById('qrModal').classList.remove('hidden');
+    // QR Modal with Direct APK Download & Web Option
+    let currentQrMode = 'apk';
+
+    function setQrMode(mode) {
+      currentQrMode = mode;
+      const baseUrl = window.location.origin;
+      const targetUrl = mode === 'apk' ? `${baseUrl}/norton-companion.apk` : `${baseUrl}/child`;
+
+      const btnApk = document.getElementById('tabQrApk');
+      const btnWeb = document.getElementById('tabQrWeb');
+      const title = document.getElementById('qrInstructionTitle');
+      const text = document.getElementById('qrInstructionText');
+
+      if (mode === 'apk') {
+        if (btnApk) btnApk.className = 'flex-1 py-1.5 rounded-lg bg-[#FFB800] text-black font-extrabold transition';
+        if (btnWeb) btnWeb.className = 'flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition';
+        if (title) title.innerHTML = '<span>📲</span><span>Descarga directa de la aplicación:</span>';
+        if (text) text.innerHTML = 'Abre la cámara de tu celular y apunta al código QR. Tu teléfono <b>descargará la APK automáticamente</b> para instalarla de una vez.';
+      } else {
+        if (btnWeb) btnWeb.className = 'flex-1 py-1.5 rounded-lg bg-[#FFB800] text-black font-extrabold transition';
+        if (btnApk) btnApk.className = 'flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition';
+        if (title) title.innerHTML = '<span>🌐</span><span>Abrir versión web en el celular:</span>';
+        if (text) text.innerHTML = 'Escanea este código para abrir la interfaz del niño directamente en el navegador del celular.';
+      }
+
+      const urlElem = document.getElementById('qrDirectUrlText');
+      if (urlElem) urlElem.innerText = targetUrl;
+      const imgElem = document.getElementById('qrCodeImg');
+      if (imgElem) imgElem.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(targetUrl)}`;
       if (window.lucide) lucide.createIcons();
+    }
+
+    function openQrModal() {
+      setQrMode('apk');
+      document.getElementById('qrModal').classList.remove('hidden');
     }
 
     function closeQrModal() {

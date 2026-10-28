@@ -83,7 +83,8 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.apk': 'application/vnd.android.package-archive'
 };
 
 const server = http.createServer(async (req, res) => {
@@ -687,12 +688,16 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(filePath);
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
+    const headers = { 'Content-Type': contentType };
+    if (ext === '.apk') {
+      headers['Content-Disposition'] = 'attachment; filename="norton-companion.apk"';
+    }
     fs.readFile(filePath, (readErr, content) => {
       if (readErr) {
         res.writeHead(500);
         return res.end('Error interno del servidor');
       }
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, headers);
       res.end(content);
     });
   });

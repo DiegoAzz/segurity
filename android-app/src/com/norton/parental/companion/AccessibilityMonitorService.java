@@ -19,7 +19,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
 
     private static final Set<String> sBlockedPackages = Collections.synchronizedSet(new HashSet<String>());
     public Handler mHandler;
-    private final String mServerBaseUrl = "https://segurity.appzplay.online";
+    public String mServerBaseUrl = "https://segurity.appzplay.online";
     private SyncRunnable mSyncRunnable;
 
     public static boolean isPackageBlocked(String packageName) {
@@ -52,7 +52,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
         @Override
         public void run() {
             if (mService != null) {
-                new FetchRulesThread(mService.mServerBaseUrl).start();
+                new FetchRulesThread(mService).start();
                 if (mService.mHandler != null) {
                     mService.mHandler.postDelayed(this, 2000);
                 }
@@ -61,49 +61,60 @@ public class AccessibilityMonitorService extends AccessibilityService {
     }
 
     public static class FetchRulesThread extends Thread {
-        private final String mUrl;
+        private final AccessibilityMonitorService mService;
 
-        public FetchRulesThread(String url) {
-            mUrl = url;
+        public FetchRulesThread(AccessibilityMonitorService service) {
+            mService = service;
         }
 
         @Override
         public void run() {
-            try {
-                URL url = new URL(mUrl + "/api/data");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(2500);
-                conn.setReadTimeout(2500);
+            String[] servers = new String[] {
+                mService.mServerBaseUrl,
+                "https://segurity.appzplay.online",
+                "http://192.168.1.124:3080"
+            };
 
-                if (conn.getResponseCode() == 200) {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    reader.close();
-                    String json = sb.toString();
+            for (String serverUrl : servers) {
+                if (serverUrl == null || serverUrl.isEmpty()) continue;
+                try {
+                    URL url = new URL(serverUrl + "/api/data");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(1500);
+                    conn.setReadTimeout(1500);
 
-                    int idx = json.indexOf("\"blockedPackages\":[");
-                    if (idx != -1) {
-                        int endIdx = json.indexOf("]", idx);
-                        if (endIdx != -1) {
-                            String arrayStr = json.substring(idx + 19, endIdx);
-                            String[] pkgs = arrayStr.replace("\"", "").split(",");
-                            sBlockedPackages.clear();
-                            for (String p : pkgs) {
-                                String clean = p.trim();
-                                if (!clean.isEmpty()) {
-                                    sBlockedPackages.add(clean);
+                    if (conn.getResponseCode() == 200) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
+                        }
+                        reader.close();
+                        String json = sb.toString();
+
+                        int idx = json.indexOf("\"blockedPackages\":[");
+                        if (idx != -1) {
+                            int endIdx = json.indexOf("]", idx);
+                            if (endIdx != -1) {
+                                String arrayStr = json.substring(idx + 19, endIdx);
+                                String[] pkgs = arrayStr.replace("\"", "").split(",");
+                                sBlockedPackages.clear();
+                                for (String p : pkgs) {
+                                    String clean = p.trim();
+                                    if (!clean.isEmpty()) {
+                                        sBlockedPackages.add(clean);
+                                    }
                                 }
                             }
                         }
+                        conn.disconnect();
+                        break;
                     }
+                    conn.disconnect();
+                } catch (Exception e) {
                 }
-                conn.disconnect();
-            } catch (Exception e) {
             }
         }
     }
@@ -120,7 +131,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
         @Override
         public void run() {
             if (mService != null) {
-                Toast.makeText(mService, "🚫 " + mPkg + " está bloqueada por tus padres.", Toast.LENGTH_LONG).show();
+                Toast.makeText(mService, "🚫 Esta aplicación está bloqueada por tus padres.", Toast.LENGTH_LONG).show();
             }
         }
     }

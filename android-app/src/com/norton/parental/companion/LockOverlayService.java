@@ -33,8 +33,8 @@ public class LockOverlayService extends Service implements View.OnClickListener 
     private static boolean sIsLocked = false;
     private WindowManager mWindowManager;
     private View mOverlayView;
-    private Handler mHandler;
-    private String mServerBaseUrl = "https://segurity.appzplay.online";
+    public Handler mHandler;
+    public String mServerBaseUrl = "https://segurity.appzplay.online";
     private PollRunnable mPollRunnable;
 
     public static boolean isCurrentlyLocked() {
@@ -63,7 +63,6 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
         startForeground(101, notification);
 
-        // Si estaba bloqueado antes del reinicio, restaurar bloqueo de inmediato
         android.content.SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         if (prefs.getBoolean("was_locked", false)) {
             showOverlay();
@@ -85,7 +84,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
             if (mService != null) {
                 new PollWorker(mService).start();
                 if (mService.mHandler != null) {
-                    mService.mHandler.postDelayed(this, 2000);
+                    mService.mHandler.postDelayed(this, 1500);
                 }
             }
         }
@@ -100,29 +99,41 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
         @Override
         public void run() {
-            try {
-                URL url = new URL(mService.mServerBaseUrl + "/api/data");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(2500);
-                conn.setReadTimeout(2500);
+            // Revisa tanto la nube en Coolify como la red local
+            String[] servers = new String[] {
+                mService.mServerBaseUrl,
+                "https://segurity.appzplay.online",
+                "http://192.168.1.124:3080"
+            };
 
-                if (conn.getResponseCode() == 200) {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    reader.close();
-                    final boolean locked = sb.toString().contains("\"instantLockActive\":true");
+            for (String serverUrl : servers) {
+                if (serverUrl == null || serverUrl.isEmpty()) continue;
+                try {
+                    URL url = new URL(serverUrl + "/api/data");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(1500);
+                    conn.setReadTimeout(1500);
 
-                    if (mService.mHandler != null) {
-                        mService.mHandler.post(new StateUpdater(mService, locked));
+                    if (conn.getResponseCode() == 200) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
+                        }
+                        reader.close();
+                        final boolean locked = sb.toString().contains("\"instantLockActive\":true");
+
+                        if (mService.mHandler != null) {
+                            mService.mHandler.post(new StateUpdater(mService, locked));
+                        }
+                        conn.disconnect();
+                        break; // Servidor activo encontrado
                     }
+                    conn.disconnect();
+                } catch (Exception e) {
                 }
-                conn.disconnect();
-            } catch (Exception e) {
             }
         }
     }
@@ -168,7 +179,6 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         if (sIsLocked && mOverlayView != null) return;
         sIsLocked = true;
 
-        // Persistir estado bloqueado para resistir reinicios
         getSharedPreferences("norton_prefs", MODE_PRIVATE).edit().putBoolean("was_locked", true).apply();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
