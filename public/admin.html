@@ -248,12 +248,47 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: ADMIN LOGIN ================= -->
+  <div id="modalAdminLogin" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#161F30] border border-[#283548] rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center">
+      <div class="w-12 h-12 rounded-2xl bg-[#FFB800] text-black flex items-center justify-center mx-auto text-2xl font-black">
+        👑
+      </div>
+      <h3 class="font-display font-black text-xl text-white">Acceso Super Admin</h3>
+      <p class="text-xs text-slate-400">
+        Inicia sesión para gestionar clientes y planes de alquiler.
+      </p>
+
+      <div id="adminLoginAlert" class="hidden p-2.5 rounded-xl text-xs font-semibold bg-red-950/60 border border-red-500/40 text-red-300">
+        Credenciales incorrectas
+      </div>
+
+      <form onsubmit="handleInlineAdminLogin(event)" class="space-y-3 text-left">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-300 uppercase mb-1">Correo Administrador</label>
+          <input type="text" id="inlineAdminEmail" value="admin@segurity.com" required
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-[#FFB800]">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-300 uppercase mb-1">Contraseña</label>
+          <input type="password" id="inlineAdminPassword" value="admin" required
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-[#FFB800]">
+        </div>
+
+        <button type="submit" id="btnInlineAdminSubmit"
+          class="w-full py-3 rounded-xl bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs shadow-lg transition">
+          Ingresar al Panel de Alquiler
+        </button>
+      </form>
+    </div>
+  </div>
+
   <script>
     // Verificar sesión de Admin
     async function checkAdminAuth() {
       const token = localStorage.getItem('norton_token');
       if (!token) {
-        window.location.href = '/login';
+        document.getElementById('modalAdminLogin').classList.remove('hidden');
         return;
       }
       try {
@@ -261,17 +296,54 @@
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) {
-          window.location.href = '/login';
+          document.getElementById('modalAdminLogin').classList.remove('hidden');
           return;
         }
         const data = await res.json();
-        if (data.role !== 'admin') {
-          window.location.href = '/';
+        const userRole = data.role || data.user?.role;
+        if (userRole !== 'admin') {
+          document.getElementById('modalAdminLogin').classList.remove('hidden');
           return;
         }
+        document.getElementById('modalAdminLogin').classList.add('hidden');
         loadClients();
       } catch (e) {
-        window.location.href = '/login';
+        document.getElementById('modalAdminLogin').classList.remove('hidden');
+      }
+    }
+
+    async function handleInlineAdminLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('inlineAdminEmail').value.trim();
+      const password = document.getElementById('inlineAdminPassword').value.trim();
+      const btn = document.getElementById('btnInlineAdminSubmit');
+      const alertBox = document.getElementById('adminLoginAlert');
+      btn.disabled = true;
+      btn.innerText = 'Verificando...';
+      alertBox.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.role === 'admin') {
+          localStorage.setItem('norton_token', data.token);
+          localStorage.setItem('norton_user', JSON.stringify(data.user));
+          document.getElementById('modalAdminLogin').classList.add('hidden');
+          await loadClients();
+        } else {
+          alertBox.innerText = data.error || 'Credenciales de administrador incorrectas';
+          alertBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        alertBox.innerText = 'Error de conexión con el servidor.';
+        alertBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Ingresar al Panel de Alquiler';
       }
     }
 

@@ -423,6 +423,8 @@ const server = http.createServer(async (req, res) => {
 
       if (sess.role === 'admin') {
         return sendJson(res, 200, {
+          success: true,
+          role: 'admin',
           user: { name: 'Super Administrador', email: db.admin.email, role: 'admin' }
         });
       }
@@ -431,6 +433,8 @@ const server = http.createServer(async (req, res) => {
       if (!client) return sendJson(res, 404, { error: 'Cliente no encontrado' });
 
       return sendJson(res, 200, {
+        success: true,
+        role: 'client',
         user: {
           id: client.id,
           name: client.name,
