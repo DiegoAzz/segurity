@@ -1,0 +1,21 @@
+{
+  "name": "norton-parental-clone",
+  "version": "1.0.0",
+  "description": "Norton Family Clone - Sistema Completo de Control Parental, Supervisión de Tiempo y Seguridad Infantil",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "parental-control",
+    "norton-family",
+    "child-care",
+    "screen-time",
+    "web-filter",
+    "geofence"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}

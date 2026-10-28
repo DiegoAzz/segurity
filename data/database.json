@@ -1,0 +1,429 @@
+{
+  "activeChildId": "child_user_1",
+  "children": [
+    {
+      "id": "child_user_1",
+      "name": "Mi Hijo",
+      "age": 11,
+      "avatar": "👦",
+      "dailyLimitMinutes": 120,
+      "usedTodayMinutes": 0,
+      "instantLockActive": false,
+      "safeSearchEnabled": true,
+      "schoolTimeActive": false,
+      "devices": [
+        {
+          "id": "real_phone_1793214022496",
+          "name": "Smartphone Android",
+          "type": "smartphone",
+          "os": "Android 10",
+          "batteryLevel": 85,
+          "isOnline": true,
+          "lastSeen": "Ahora mismo"
+        }
+      ],
+      "currentLocation": {
+        "lat": 40.4168,
+        "lng": -3.7038,
+        "address": "Abre http://192.168.1.124:3080/child en tu celular para activar el GPS",
+        "battery": 100,
+        "updatedAt": "Pendiente",
+        "zone": "Esperando celular"
+      }
+    }
+  ],
+  "webCategories": [
+    {
+      "id": "cat_adult",
+      "name": "Contenido para Adultos / Pornografía",
+      "icon": "🔞",
+      "description": "Sitios con material explícito, desnudez y pornografía.",
+      "riskLevel": "high",
+      "action": "blocked",
+      "keywords": [
+        "porn",
+        "xxx",
+        "adult",
+        "sex",
+        "erotic"
+      ]
+    },
+    {
+      "id": "cat_violence",
+      "name": "Violencia, Odio y Armas",
+      "icon": "⚔️",
+      "description": "Material violento, armas de fuego, racismo e incitación al odio.",
+      "riskLevel": "high",
+      "action": "blocked",
+      "keywords": [
+        "weapons",
+        "guns",
+        "gore",
+        "violence",
+        "hate"
+      ]
+    },
+    {
+      "id": "cat_gambling",
+      "name": "Apuestas y Juegos de Azar",
+      "icon": "🎰",
+      "description": "Casinos online, apuestas deportivas, póker y ruletas virtuales.",
+      "riskLevel": "high",
+      "action": "blocked",
+      "keywords": [
+        "casino",
+        "bet365",
+        "poker",
+        "slots",
+        "gamble",
+        "apuestas"
+      ]
+    },
+    {
+      "id": "cat_drugs",
+      "name": "Drogas, Tabaco y Sustancias",
+      "icon": "💊",
+      "description": "Venta y promoción de estupefacientes, vapeo y alcohol para menores.",
+      "riskLevel": "high",
+      "action": "blocked",
+      "keywords": [
+        "drugs",
+        "vape",
+        "weed",
+        "alcohol",
+        "liquor"
+      ]
+    },
+    {
+      "id": "cat_social",
+      "name": "Redes Sociales",
+      "icon": "💬",
+      "description": "Intercambio de mensajes, fotos y perfiles públicos.",
+      "riskLevel": "medium",
+      "action": "warning",
+      "keywords": [
+        "instagram",
+        "tiktok",
+        "twitter",
+        "facebook",
+        "snapchat"
+      ]
+    },
+    {
+      "id": "cat_gaming",
+      "name": "Videojuegos Online",
+      "icon": "🎮",
+      "description": "Portales de juegos en navegador, servidores de juego y streams.",
+      "riskLevel": "medium",
+      "action": "allowed",
+      "keywords": [
+        "roblox",
+        "twitch",
+        "poki",
+        "steam",
+        "minecraft"
+      ]
+    },
+    {
+      "id": "cat_shopping",
+      "name": "Compras y Tiendas en Línea",
+      "icon": "🛍️",
+      "description": "Sitios con pasarelas de pago y tarjetas de crédito.",
+      "riskLevel": "medium",
+      "action": "warning",
+      "keywords": [
+        "amazon",
+        "aliexpress",
+        "shein",
+        "ebay",
+        "shop"
+      ]
+    },
+    {
+      "id": "cat_education",
+      "name": "Educación y Ciencias",
+      "icon": "📚",
+      "description": "Enciclopedias, plataformas escolares y portales educativos.",
+      "riskLevel": "low",
+      "action": "allowed",
+      "keywords": [
+        "wikipedia",
+        "khanacademy",
+        "duolingo",
+        "edu",
+        "scratch"
+      ]
+    }
+  ],
+  "customWebRules": [
+    {
+      "id": "rule_1",
+      "domain": "scratch.mit.edu",
+      "action": "allowed",
+      "note": "Permitido para proyectos escolares"
+    },
+    {
+      "id": "rule_2",
+      "domain": "omegle.com",
+      "action": "blocked",
+      "note": "Bloqueo de seguridad"
+    }
+  ],
+  "monitoredApps": [
+    {
+      "id": "app_1",
+      "name": "TikTok",
+      "packageName": "com.zhiliaoapp.musically",
+      "iconColor": "bg-slate-900 text-white",
+      "category": "Redes Sociales",
+      "action": "limited",
+      "dailyLimitMinutes": 30,
+      "usedMinutesToday": 0
+    },
+    {
+      "id": "app_2",
+      "name": "Roblox",
+      "packageName": "com.roblox.client",
+      "iconColor": "bg-red-700 text-white",
+      "category": "Videojuegos",
+      "action": "limited",
+      "dailyLimitMinutes": 45,
+      "usedMinutesToday": 0
+    },
+    {
+      "id": "app_3",
+      "name": "YouTube",
+      "packageName": "com.google.android.youtube",
+      "iconColor": "bg-red-600 text-white",
+      "category": "Video y Streaming",
+      "action": "blocked",
+      "dailyLimitMinutes": 30,
+      "usedMinutesToday": 0
+    },
+    {
+      "id": "app_4",
+      "name": "Discord",
+      "packageName": "com.discord",
+      "iconColor": "bg-indigo-600 text-white",
+      "category": "Mensajería",
+      "action": "blocked",
+      "dailyLimitMinutes": 0,
+      "usedMinutesToday": 0
+    },
+    {
+      "id": "app_5",
+      "name": "WhatsApp",
+      "packageName": "com.whatsapp",
+      "iconColor": "bg-emerald-600 text-white",
+      "category": "Comunicación Familiar",
+      "action": "allowed",
+      "dailyLimitMinutes": 60,
+      "usedMinutesToday": 0
+    }
+  ],
+  "geofences": [
+    {
+      "id": "geo_1",
+      "name": "Casa Familiar",
+      "type": "home",
+      "address": "Ubicación Familiar",
+      "lat": 40.4168,
+      "lng": -3.7038,
+      "radiusMeters": 150,
+      "notifyOnEnter": true,
+      "notifyOnExit": true
+    },
+    {
+      "id": "geo_2",
+      "name": "Colegio / Escuela",
+      "type": "school",
+      "address": "Centro Educativo",
+      "lat": 40.418,
+      "lng": -3.702,
+      "radiusMeters": 250,
+      "notifyOnEnter": true,
+      "notifyOnExit": true
+    }
+  ],
+  "requests": [],
+  "activityLogs": [
+    {
+      "id": "log_1793216245982",
+      "childId": "all",
+      "type": "time",
+      "title": "Desbloqueo Total de Dispositivos",
+      "details": "El padre ha reanudado el acceso a todos los dispositivos.",
+      "status": "allowed",
+      "timestamp": "Hoy, 14:37"
+    },
+    {
+      "id": "log_1793216139217",
+      "childId": "all",
+      "type": "time",
+      "title": "🚨 BLOQUEO TOTAL ACTIVADO",
+      "details": "El padre ha bloqueado TODOS los dispositivos y celulares de la familia de inmediato.",
+      "status": "blocked",
+      "timestamp": "Hoy, 14:35"
+    },
+    {
+      "id": "log_1793216125849",
+      "childId": "all",
+      "type": "time",
+      "title": "Desbloqueo Total de Dispositivos",
+      "details": "El padre ha reanudado el acceso a todos los dispositivos.",
+      "status": "allowed",
+      "timestamp": "Hoy, 14:35"
+    },
+    {
+      "id": "log_1793216100090",
+      "childId": "all",
+      "type": "time",
+      "title": "🚨 BLOQUEO TOTAL ACTIVADO",
+      "details": "El padre ha bloqueado TODOS los dispositivos y celulares de la familia de inmediato.",
+      "status": "blocked",
+      "timestamp": "Hoy, 14:35"
+    },
+    {
+      "id": "log_1793216098881",
+      "childId": "all",
+      "type": "time",
+      "title": "Desbloqueo Total de Dispositivos",
+      "details": "El padre ha reanudado el acceso a todos los dispositivos.",
+      "status": "allowed",
+      "timestamp": "Hoy, 14:34"
+    },
+    {
+      "id": "log_1793215732543",
+      "childId": "all",
+      "type": "time",
+      "title": "🚨 BLOQUEO TOTAL ACTIVADO",
+      "details": "El padre ha bloqueado TODOS los dispositivos y celulares de la familia de inmediato.",
+      "status": "blocked",
+      "timestamp": "Hoy, 14:28"
+    },
+    {
+      "id": "log_1793215716808",
+      "childId": "all",
+      "type": "time",
+      "title": "Desbloqueo Total de Dispositivos",
+      "details": "El padre ha reanudado el acceso a todos los dispositivos.",
+      "status": "allowed",
+      "timestamp": "Hoy, 14:28"
+    },
+    {
+      "id": "log_1793215646481",
+      "childId": "all",
+      "type": "time",
+      "title": "🚨 BLOQUEO TOTAL ACTIVADO",
+      "details": "El padre ha bloqueado TODOS los dispositivos y celulares de la familia de inmediato.",
+      "status": "blocked",
+      "timestamp": "Hoy, 14:27"
+    },
+    {
+      "id": "log_1793215638168",
+      "childId": "all",
+      "type": "time",
+      "title": "Desbloqueo Total de Dispositivos",
+      "details": "El padre ha reanudado el acceso a todos los dispositivos.",
+      "status": "allowed",
+      "timestamp": "Hoy, 14:27"
+    },
+    {
+      "id": "log_1793213999240",
+      "childId": "all",
+      "type": "time",
+      "title": "🚨 BLOQUEO TOTAL ACTIVADO",
+      "details": "El padre ha bloqueado TODOS los dispositivos y celulares de la familia de inmediato.",
+      "status": "blocked",
+      "timestamp": "Hoy, 13:59"
+    },
+    {
+      "id": "log_init",
+      "childId": "child_user_1",
+      "type": "info",
+      "title": "Sistema Listo para Vincular tu Celular",
+      "details": "Abre http://192.168.1.124:3080/child en tu celular para registrarlo automáticamente en esta lista.",
+      "status": "info",
+      "timestamp": "Ahora mismo"
+    }
+  ],
+  "schedules": [
+    {
+      "day": "Lunes",
+      "dayShort": "Lun",
+      "allowedHours": 2,
+      "timeSlots": [
+        {
+          "start": "16:00",
+          "end": "20:00"
+        }
+      ]
+    },
+    {
+      "day": "Martes",
+      "dayShort": "Mar",
+      "allowedHours": 2,
+      "timeSlots": [
+        {
+          "start": "16:00",
+          "end": "20:00"
+        }
+      ]
+    },
+    {
+      "day": "Miércoles",
+      "dayShort": "Mié",
+      "allowedHours": 2,
+      "timeSlots": [
+        {
+          "start": "16:00",
+          "end": "20:00"
+        }
+      ]
+    },
+    {
+      "day": "Jueves",
+      "dayShort": "Jue",
+      "allowedHours": 2,
+      "timeSlots": [
+        {
+          "start": "16:00",
+          "end": "20:00"
+        }
+      ]
+    },
+    {
+      "day": "Viernes",
+      "dayShort": "Vie",
+      "allowedHours": 3,
+      "timeSlots": [
+        {
+          "start": "15:00",
+          "end": "21:00"
+        }
+      ]
+    },
+    {
+      "day": "Sábado",
+      "dayShort": "Sáb",
+      "allowedHours": 4,
+      "timeSlots": [
+        {
+          "start": "10:00",
+          "end": "21:00"
+        }
+      ]
+    },
+    {
+      "day": "Domingo",
+      "dayShort": "Dom",
+      "allowedHours": 3.5,
+      "timeSlots": [
+        {
+          "start": "10:00",
+          "end": "20:00"
+        }
+      ]
+    }
+  ]
+}

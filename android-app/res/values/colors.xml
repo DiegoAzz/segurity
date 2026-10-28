@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="norton_yellow">#FFB800</color>
+    <color name="norton_dark">#0B0F19</color>
+    <color name="norton_card">#161F30</color>
+    <color name="norton_danger">#EF4444</color>
+    <color name="norton_danger_dark">#7F1D1D</color>
+    <color name="white">#FFFFFF</color>
+    <color name="text_slate">#94A3B8</color>
+</resources>

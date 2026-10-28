@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Norton Companion | Modo Niño</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .pulse-glow {
+      animation: pulseGlow 1.8s infinite;
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .lock-shake {
+      animation: shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col bg-[#0B0F19] text-slate-100 overflow-x-hidden">
+
+  <!-- ================= TOP PHONE HEADER ================= -->
+  <header class="bg-[#111827] border-b border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center space-x-2.5">
+      <div class="w-8 h-8 rounded-xl bg-[#FFB800] text-black flex items-center justify-center font-black shadow-md">
+        <!-- Norton Checkmark Shield -->
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center space-x-1.5">
+          <span class="font-extrabold text-sm text-white">Norton <span class="text-[#FFB800]">Companion</span></span>
+        </div>
+        <div class="text-[10px] text-emerald-400 font-bold flex items-center space-x-1">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="headerSyncText">Sincronizado con Padres</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Battery & SOS -->
+    <div class="flex items-center space-x-2">
+      <div class="flex items-center space-x-1 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700 text-xs">
+        <i data-lucide="battery" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span id="phoneBatteryText" class="text-[11px] font-bold text-slate-200">--%</span>
+      </div>
+      <button onclick="triggerSOS()" class="px-2.5 py-1 bg-red-600 active:bg-red-700 text-white font-black text-xs rounded-lg shadow tracking-wider">
+        SOS
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= NORMAL UNLOCKED CHILD SCREEN ================= -->
+  <main id="childNormalView" class="flex-1 p-4 space-y-4 max-w-md mx-auto w-full pb-8">
+    
+    <!-- Child Greeting Card -->
+    <div class="p-4 rounded-2xl bg-[#161F30] border border-slate-800 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-3xl" id="childAvatar">👦</span>
+        <div>
+          <h2 class="text-base font-black text-white" id="childGreetingName">Lucas Martínez</h2>
+          <p class="text-xs text-slate-400">Protección Familiar Activa</p>
+        </div>
+      </div>
+      <button onclick="requestFullscreen()" class="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs" title="Modo pantalla completa">
+        <i data-lucide="maximize" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Native APK Banner for Full System Lock -->
+    <div class="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-slate-900 border border-emerald-500/30 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <span class="text-xl">🤖</span>
+        <div>
+          <div class="text-xs font-bold text-white">APK Bloqueo Total (Android)</div>
+          <div class="text-[10px] text-emerald-300">Tapa YouTube y bloquea todo el sistema</div>
+        </div>
+      </div>
+      <a href="/norton-companion.apk" download="norton-companion.apk" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow">
+        Instalar APK
+      </a>
+    </div>
+
+    <!-- Countdown Card -->
+    <div class="p-5 rounded-2xl bg-gradient-to-br from-[#161F30] to-slate-900 border border-slate-800 text-center relative overflow-hidden shadow-xl">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tiempo Restante Hoy</div>
+      <div id="screenTimeRemaining" class="text-5xl font-black text-[#FFB800] my-2 tracking-tight">-- min</div>
+      
+      <!-- Progress Bar -->
+      <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden my-3">
+        <div id="screenTimeBar" class="bg-gradient-to-r from-amber-400 to-[#FFB800] h-full rounded-full transition-all duration-500" style="width: 50%;"></div>
+      </div>
+      <p class="text-xs text-slate-400" id="screenTimeLimitLabel">Límite asignado por tus padres</p>
+
+      <button onclick="openRequestModal('extra_time')" class="mt-4 w-full py-2.5 rounded-xl bg-slate-800/90 active:bg-slate-700 text-[#FFB800] text-xs font-extrabold border border-amber-500/30 flex items-center justify-center space-x-1.5 shadow">
+        <i data-lucide="hourglass" class="w-4 h-4"></i>
+        <span>Pedir tiempo extra a Papá / Mamá</span>
+      </button>
+    </div>
+
+    <!-- Web Navigation Tester on Mobile -->
+    <div class="p-4 rounded-2xl bg-[#161F30] border border-slate-800">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center space-x-1.5">
+          <i data-lucide="globe" class="w-4 h-4 text-[#FFB800]"></i>
+          <span>Navegador Protegido Norton</span>
+        </h3>
+      </div>
+      <p class="text-[11px] text-slate-400 mb-3">Prueba qué sitios web están permitidos por tus padres:</p>
+
+      <div class="flex space-x-2">
+        <input type="text" id="mobileUrlInput" value="casino-slots.com" placeholder="ej. roblox.com o youtube.com" class="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FFB800]">
+        <button onclick="testMobileUrl()" class="px-3.5 py-2 bg-[#FFB800] active:bg-amber-600 text-black font-extrabold text-xs rounded-xl shadow">
+          Ir
+        </button>
+      </div>
+
+      <div class="flex flex-wrap gap-1.5 mt-2.5 text-[10px]">
+        <button onclick="setTestUrl('casino-slots.com')" class="px-2 py-0.5 rounded bg-red-950/70 border border-red-500/30 text-red-300">🎰 Casino</button>
+        <button onclick="setTestUrl('instagram.com')" class="px-2 py-0.5 rounded bg-amber-950/70 border border-amber-500/30 text-amber-300">💬 Red Social</button>
+        <button onclick="setTestUrl('wikipedia.org')" class="px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/30 text-emerald-300">📚 Wikipedia</button>
+      </div>
+
+      <!-- Result banner -->
+      <div id="mobileUrlResult" class="mt-3 p-2.5 rounded-xl text-xs hidden"></div>
+    </div>
+
+    <!-- Simulated Apps Grid -->
+    <div class="p-4 rounded-2xl bg-[#161F30] border border-slate-800">
+      <h3 class="text-xs font-black uppercase text-slate-400 tracking-wider mb-3">Mis Aplicaciones</h3>
+      <div class="grid grid-cols-4 gap-3 text-center" id="mobileAppsContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Quick Emergency Contact -->
+    <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">📞</span>
+        <div>
+          <div class="text-xs font-bold text-white">Llamar a Papá / Mamá</div>
+          <div class="text-[10px] text-slate-400">Siempre disponible</div>
+        </div>
+      </div>
+      <button onclick="alert('Iniciando llamada directa con el número del tutor registrado...')" class="px-3 py-1.5 rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs shadow">
+        Llamar
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ================= FULLSCREEN LOCK SCREEN (PAUSA INSTANTÁNEA / TIEMPO AGOTADO) ================= -->
+  <div id="childLockScreen" class="hidden fixed inset-0 z-50 bg-[#0B0F19] flex flex-col justify-between p-6 text-center select-none">
+    
+    <!-- Top indicator -->
+    <div class="flex items-center justify-center space-x-2 text-xs font-bold text-red-400 pt-4">
+      <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+      <span class="tracking-wider uppercase">Pausa Instantánea Activa</span>
+    </div>
+
+    <!-- Center message & Icon -->
+    <div class="my-auto space-y-5 px-4 lock-shake">
+      
+      <!-- Big Red Lock Icon -->
+      <div class="w-24 h-24 rounded-3xl bg-red-600/20 border-2 border-red-500 text-red-500 mx-auto flex items-center justify-center pulse-glow shadow-2xl">
+        <i data-lucide="lock" class="w-12 h-12 stroke-[2.5]"></i>
+      </div>
+
+      <div class="space-y-2">
+        <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          Dispositivo Pausado
+        </h1>
+        <p id="lockScreenMessage" class="text-sm text-slate-300 leading-relaxed max-w-sm mx-auto">
+          Tus padres han puesto en pausa este teléfono con la <b>Pausa Instantánea de Norton Family</b>. Es hora de desconectarse o hablar con ellos.
+        </p>
+      </div>
+
+      <!-- Action buttons on Lock Screen -->
+      <div class="pt-4 space-y-3 max-w-xs mx-auto w-full">
+        <button onclick="openRequestModal('extra_time')" class="w-full py-3.5 rounded-xl bg-[#FFB800] active:bg-amber-600 text-black font-black text-sm shadow-xl flex items-center justify-center space-x-2 transition">
+          <i data-lucide="clock" class="w-4 h-4"></i>
+          <span>Pedir más tiempo a mis padres</span>
+        </button>
+
+        <button onclick="alert('Llamada autorizada a Papá/Mamá iniciada.')" class="w-full py-3 rounded-xl bg-slate-800 active:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center justify-center space-x-2">
+          <i data-lucide="phone" class="w-4 h-4 text-emerald-400"></i>
+          <span>Llamada de Emergencia a Padres</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom security brand -->
+    <div class="pb-4 text-slate-500 text-xs flex items-center justify-center space-x-1.5">
+      <span>🛡️</span>
+      <span>Supervisado por Norton Family Premier</span>
+    </div>
+
+  </div>
+
+  <!-- ================= MODAL: SOLICITAR TIEMPO ================= -->
+  <div id="childRequestModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#161F30] border border-slate-700 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-black text-base text-white flex items-center space-x-2">
+          <span>📩</span>
+          <span>Pedir Tiempo a tus Padres</span>
+        </h3>
+        <button onclick="closeRequestModal()" class="text-slate-400 text-lg">✕</button>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-300">¿Cuánto tiempo necesitas?</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="selectTimeOption(15)" id="btnTime-15" class="time-opt-btn py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300">+15 min</button>
+          <button type="button" onclick="selectTimeOption(30)" id="btnTime-30" class="time-opt-btn py-2 rounded-xl bg-[#FFB800] text-black font-extrabold text-xs">+30 min</button>
+          <button type="button" onclick="selectTimeOption(60)" id="btnTime-60" class="time-opt-btn py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300">+1 hora</button>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-300">Mensaje para Papá / Mamá</label>
+        <textarea id="modalRequestMsg" rows="3" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#FFB800]" placeholder="Por favor, necesito terminar mi tarea..."></textarea>
+      </div>
+
+      <div class="flex space-x-2 pt-2">
+        <button onclick="closeRequestModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold">Cancelar</button>
+        <button onclick="submitRequestFromPhone()" class="flex-1 py-2.5 rounded-xl bg-[#FFB800] active:bg-amber-600 text-black font-black text-xs shadow">Enviar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Synthesizer for alerts -->
+  <script>
+    let currentChildId = 'child_1';
+    let previousLockedState = null;
+    let selectedMinutes = 30;
+
+    // Web Audio Synthesizer Beep
+    function playBeep(type) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'lock') {
+          // Harsh descending alarm
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.4);
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.4);
+        } else {
+          // Cheerful unlock chime
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(660, audioCtx.currentTime + 0.15);
+          osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.5);
+        }
+      } catch (e) {
+        // AudioContext might require user gesture on some browsers
+      }
+    }
+
+    // Battery API
+    async function readBattery() {
+      try {
+        if ('getBattery' in navigator) {
+          const battery = await navigator.getBattery();
+          const level = Math.round(battery.level * 100);
+          document.getElementById('phoneBatteryText').innerText = `${level}%`;
+          return level;
+        }
+      } catch (e) {}
+      return 85; // Fallback
+    }
+
+    // Geolocation API with high accuracy
+    function getGpsCoords() {
+      return new Promise((resolve) => {
+        if ('geolocation' in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => resolve(null),
+            { timeout: 5000, enableHighAccuracy: true, maximumAge: 10000 }
+          );
+        } else {
+          resolve(null);
+        }
+      });
+    }
+
+    // Detect real phone model and OS
+    function getDeviceDetails() {
+      const ua = navigator.userAgent;
+      let devName = 'Celular Móvil';
+      let os = 'Móvil';
+
+      if (/iPhone/i.test(ua)) {
+        devName = 'Apple iPhone';
+        const match = ua.match(/OS (\d+[_\d]*)/);
+        os = match ? `iOS ${match[1].replace(/_/g, '.')}` : 'iOS';
+      } else if (/iPad/i.test(ua)) {
+        devName = 'Apple iPad';
+        os = 'iPadOS';
+      } else if (/Android/i.test(ua)) {
+        devName = 'Smartphone Android';
+        const modelMatch = ua.match(/;\s*([^;]+)\s+Build\//i);
+        if (modelMatch && modelMatch[1]) {
+          devName = modelMatch[1].trim();
+        }
+        const versionMatch = ua.match(/Android\s+([\d.]+)/i);
+        os = versionMatch ? `Android ${versionMatch[1]}` : 'Android';
+      }
+      return { devName, os };
+    }
+
+    // Send Telemetry to server
+    async function reportTelemetry() {
+      const battery = await readBattery();
+      const coords = await getGpsCoords();
+      const device = getDeviceDetails();
+
+      try {
+        await fetch('/api/child/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            childId: currentChildId,
+            deviceId: 'real_phone_' + (localStorage.getItem('norton_dev_id') || (localStorage.setItem('norton_dev_id', Date.now()), Date.now())),
+            deviceName: device.devName,
+            os: device.os,
+            batteryLevel: battery,
+            lat: coords?.lat,
+            lng: coords?.lng
+          })
+        });
+      } catch (e) {}
+    }
+
+    // Main Polling Loop: Detects Instant Lock from parents!
+    async function checkChildStatus() {
+      try {
+        const res = await fetch('/api/data');
+        if (!res.ok) throw new Error('Offline');
+        const data = await res.json();
+        
+        currentChildId = data.activeChildId || 'child_1';
+        const child = data.children.find(c => c.id === currentChildId) || data.children[0];
+        if (!child) return;
+
+        // Render basic data
+        document.getElementById('childGreetingName').innerText = child.name;
+        document.getElementById('childAvatar').innerText = child.avatar;
+
+        const rem = Math.max(0, child.dailyLimitMinutes - child.usedTodayMinutes);
+        document.getElementById('screenTimeRemaining').innerText = `${rem} min`;
+        document.getElementById('screenTimeLimitLabel').innerText = `Límite diario: ${Math.floor(child.dailyLimitMinutes / 60)}h ${child.dailyLimitMinutes % 60}m`;
+        const pct = Math.min(100, Math.round((child.usedTodayMinutes / child.dailyLimitMinutes) * 100));
+        document.getElementById('screenTimeBar').style.width = `${pct}%`;
+
+        // Render Apps
+        const appsContainer = document.getElementById('mobileAppsContainer');
+        appsContainer.innerHTML = (data.monitoredApps || []).slice(0, 8).map(app => `
+          <button onclick="openApp('${app.name}', '${app.action}')" class="flex flex-col items-center space-y-1 p-1 rounded-xl active:bg-slate-800 transition">
+            <div class="w-12 h-12 rounded-2xl ${app.iconColor} flex items-center justify-center font-bold text-sm shadow relative">
+              ${app.name.substring(0, 2)}
+              ${app.action === 'blocked' ? '<span class="absolute -top-1 -right-1 text-xs">🔒</span>' : ''}
+            </div>
+            <span class="text-[10px] text-slate-300 truncate w-14">${app.name}</span>
+          </button>
+        `).join('');
+
+        // CHECK IF LOCKED!
+        const isLocked = !!child.instantLockActive || (child.usedTodayMinutes >= child.dailyLimitMinutes);
+        const lockScreen = document.getElementById('childLockScreen');
+        const normalView = document.getElementById('childNormalView');
+
+        if (isLocked) {
+          normalView.classList.add('hidden');
+          lockScreen.classList.remove('hidden');
+
+          if (child.instantLockActive) {
+            document.getElementById('lockScreenMessage').innerHTML = 'Tus padres han activado la <b>Pausa Instantánea de Norton Family</b>. El acceso a este teléfono ha sido suspendido temporalmente.';
+          } else {
+            document.getElementById('lockScreenMessage').innerHTML = `Has consumido tu tiempo de pantalla diario permitido (${Math.floor(child.dailyLimitMinutes / 60)}h). El teléfono se ha pausado hasta mañana.`;
+          }
+
+          // If transition from unlocked to locked, sound alarm and vibrate phone!
+          if (previousLockedState === false) {
+            playBeep('lock');
+            if ('vibrate' in navigator) navigator.vibrate([300, 150, 300]);
+          }
+        } else {
+          lockScreen.classList.add('hidden');
+          normalView.classList.remove('hidden');
+
+          // If transition from locked to unlocked, play cheerful chime!
+          if (previousLockedState === true) {
+            playBeep('unlock');
+            if ('vibrate' in navigator) navigator.vibrate([150]);
+          }
+        }
+
+        previousLockedState = isLocked;
+        document.getElementById('headerSyncText').innerText = 'Sincronizado con Padres';
+      } catch (err) {
+        document.getElementById('headerSyncText').innerText = 'Conectando con servidor...';
+      }
+    }
+
+    // Web filter testing
+    async function testMobileUrl() {
+      const url = document.getElementById('mobileUrlInput').value.trim();
+      if (!url) return;
+      const resElem = document.getElementById('mobileUrlResult');
+      resElem.classList.remove('hidden');
+      resElem.className = 'mt-3 p-3 rounded-xl text-xs bg-slate-900 border border-slate-700 text-slate-300';
+      resElem.innerText = 'Consultando filtro web Norton...';
+
+      try {
+        const res = await fetch('/api/child/browse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: currentChildId, url })
+        });
+        const data = await res.json();
+        if (!data.allowed) {
+          resElem.className = 'mt-3 p-3 rounded-xl text-xs bg-red-950/80 border border-red-500/40 text-red-200';
+          resElem.innerHTML = `
+            <div class="font-bold flex items-center space-x-1">
+              <span>🚫</span>
+              <span>BLOQUEADO POR NORTON</span>
+            </div>
+            <div class="mt-1">${data.message}</div>
+          `;
+          if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+        } else {
+          resElem.className = 'mt-3 p-3 rounded-xl text-xs bg-emerald-950/80 border border-emerald-500/40 text-emerald-200';
+          resElem.innerHTML = `
+            <div class="font-bold flex items-center space-x-1">
+              <span>✅</span>
+              <span>SITIO WEB PERMITIDO</span>
+            </div>
+            <div class="mt-1">${data.message}</div>
+          `;
+        }
+      } catch (e) {
+        resElem.innerText = 'Error verificando sitio.';
+      }
+    }
+
+    function setTestUrl(url) {
+      document.getElementById('mobileUrlInput').value = url;
+      testMobileUrl();
+    }
+
+    function openApp(name, action) {
+      if (previousLockedState) {
+        alert('Dispositivo en Pausa Instantánea. No se pueden abrir aplicaciones.');
+        return;
+      }
+      if (action === 'blocked') {
+        alert(`🔒 "${name}" está bloqueada por tus padres.`);
+        if ('vibrate' in navigator) navigator.vibrate([200]);
+      } else {
+        alert(`Abriendo "${name}" bajo supervisión Norton.`);
+      }
+    }
+
+    async function triggerSOS() {
+      if (confirm('¿Deseas enviar una ALERTA SOS de emergencia a tus padres ahora?')) {
+        try {
+          await fetch('/api/child/sos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ childId: currentChildId })
+          });
+          alert('🚨 Alerta SOS enviada con éxito. Tus padres han recibido tu alerta y ubicación GPS inmediata.');
+        } catch (e) {
+          alert('Alerta enviada.');
+        }
+      }
+    }
+
+    // Modal Requests
+    function openRequestModal(type) {
+      document.getElementById('childRequestModal').classList.remove('hidden');
+      document.getElementById('modalRequestMsg').value = 'Papá, porfa déjame 30 minutos más para terminar mi video.';
+      selectTimeOption(30);
+    }
+
+    function closeRequestModal() {
+      document.getElementById('childRequestModal').classList.add('hidden');
+    }
+
+    function selectTimeOption(mins) {
+      selectedMinutes = mins;
+      document.querySelectorAll('.time-opt-btn').forEach(btn => {
+        btn.className = 'time-opt-btn py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300';
+      });
+      const activeBtn = document.getElementById(`btnTime-${mins}`);
+      if (activeBtn) {
+        activeBtn.className = 'time-opt-btn py-2 rounded-xl bg-[#FFB800] text-black font-extrabold text-xs';
+      }
+    }
+
+    async function submitRequestFromPhone() {
+      const msg = document.getElementById('modalRequestMsg').value;
+      try {
+        const res = await fetch('/api/child/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            childId: currentChildId,
+            type: 'extra_time',
+            target: `Tiempo de Pantalla (+${selectedMinutes} min)`,
+            requestedMinutes: selectedMinutes,
+            message: msg
+          })
+        });
+        if (res.ok) {
+          closeRequestModal();
+          alert('¡Petición enviada a tus padres! Te avisaremos cuando la aprueben.');
+        }
+      } catch (e) {
+        alert('Error al enviar petición.');
+      }
+    }
+
+    function requestFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    // Initialization & Heartbeat
+    document.addEventListener('DOMContentLoaded', () => {
+      readBattery();
+      checkChildStatus();
+      reportTelemetry();
+
+      // Poll server every 1.5 seconds for instant lock reaction!
+      setInterval(checkChildStatus, 1500);
+
+      // Report telemetry every 10 seconds
+      setInterval(reportTelemetry, 10000);
+
+      if (window.lucide) lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

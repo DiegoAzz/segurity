@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Norton Family | Control Parental y Seguridad Infantil</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Leaflet CSS & JS for OpenStreetMap -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif']
+          },
+          colors: {
+            norton: {
+              yellow: '#FFB800',
+              yellowHover: '#E5A600',
+              gold: '#FFD700',
+              dark: '#0B0F19',
+              card: '#161F30',
+              cardHover: '#1E293B',
+              border: '#283548',
+              accent: '#10B981',
+              danger: '#EF4444',
+              warning: '#F59E0B'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #283548; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ffb800; }
+    
+    .phone-notch {
+      width: 140px;
+      height: 22px;
+      background: #000;
+      border-radius: 0 0 16px 16px;
+      margin: 0 auto;
+    }
+    .badge-pulse {
+      animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans bg-[#0B0F19] text-slate-100 antialiased selection:bg-[#FFB800] selection:text-black">
+
+  <!-- ================= TOP NAVIGATION BAR ================= -->
+  <header class="bg-[#111827] border-b border-[#283548] sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Logo -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-[#FFB800] flex items-center justify-center shadow-lg shadow-amber-500/20 text-black font-extrabold">
+          <!-- Norton Checkmark Shield Icon -->
+          <svg class="w-6 h-6 fill-current text-black" viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-display font-black text-xl tracking-tight text-white">Norton<span class="text-[#FFB800] ml-1">Family</span></span>
+            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-[#FFB800] border border-amber-500/20">Premier</span>
+          </div>
+          <p class="text-xs text-slate-400">Protección y Cuidado Parental Activo</p>
+        </div>
+      </div>
+
+      <!-- Child Selector Pills -->
+      <div id="childSelectorContainer" class="hidden md:flex items-center bg-[#1E293B]/70 p-1 rounded-xl border border-[#283548]">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Action Buttons & Instant Lock -->
+      <div class="flex items-center space-x-3">
+        <!-- Download APK Button -->
+        <a href="/norton-companion.apk" download="norton-companion.apk" class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 font-bold text-xs border border-emerald-500/30 transition shadow">
+          <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+          <span>Descargar APK Nativa</span>
+        </a>
+
+        <!-- Connect Phone QR Button -->
+        <button onclick="openQrModal()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-[#283548] hover:bg-slate-700 text-amber-300 font-bold text-xs border border-amber-500/30 transition shadow">
+          <i data-lucide="qr-code" class="w-4 h-4 text-[#FFB800]"></i>
+          <span>Vincular mi Celular</span>
+        </button>
+
+        <!-- Live protection indicator -->
+        <div class="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 badge-pulse"></span>
+          <span>Supervisión en vivo</span>
+        </div>
+
+        <!-- INSTANT LOCK BUTTON (BLOQUEAR TODO / PAUSA INSTANTÁNEA) -->
+        <button id="instantLockBtn" onclick="toggleInstantLock()" class="flex items-center space-x-2 px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-200 shadow-lg bg-[#FFB800] hover:bg-[#E5A600] text-black">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+          <span id="instantLockText">🛑 Bloquear Todo</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Child Selector -->
+    <div class="md:hidden px-4 py-2 bg-[#161F30] border-t border-[#283548] flex items-center justify-between overflow-x-auto" id="childSelectorMobile">
+      <!-- Rendered by JS -->
+    </div>
+  </header>
+
+  <!-- ================= SUBHEADER / TABS NAVIGATION ================= -->
+  <div class="bg-[#161F30]/90 backdrop-blur border-b border-[#283548]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between overflow-x-auto no-scrollbar">
+      <nav class="flex space-x-1 sm:space-x-2 py-2.5">
+        <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>Resumen</span>
+        </button>
+        <button onclick="switchTab('time')" id="tab-time" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
+          <i data-lucide="clock" class="w-4 h-4"></i>
+          <span>Tiempo en Pantalla</span>
+        </button>
+        <button onclick="switchTab('web')" id="tab-web" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
+          <i data-lucide="globe" class="w-4 h-4"></i>
+          <span>Filtro Web</span>
+        </button>
+        <button onclick="switchTab('apps')" id="tab-apps" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
+          <i data-lucide="smartphone" class="w-4 h-4"></i>
+          <span>Aplicaciones</span>
+        </button>
+        <button onclick="switchTab('location')" id="tab-location" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
+          <i data-lucide="map-pin" class="w-4 h-4"></i>
+          <span>Ubicación</span>
+        </button>
+        <button onclick="switchTab('requests')" id="tab-requests" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
+          <i data-lucide="bell" class="w-4 h-4"></i>
+          <span>Alertas y Solicitudes</span>
+          <span id="requestsBadge" class="hidden ml-1 px-1.5 py-0.2 bg-amber-500 text-black text-[11px] font-extrabold rounded-full">0</span>
+        </button>
+        <button onclick="switchTab('simulator')" id="tab-simulator" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all text-[#FFB800] bg-amber-500/10 border border-amber-500/30">
+          <i data-lucide="smartphone-charging" class="w-4 h-4"></i>
+          <span>Simulador Dispositivo Niño</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ================= MAIN CONTENT WRAPPER ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- ================= TAB 1: OVERVIEW ================= -->
+    <section id="content-overview" class="tab-content space-y-6">
+      
+      <!-- Instant Lock Alert Banner (si está activo) -->
+      <div id="instantLockBanner" class="hidden p-4 rounded-2xl bg-red-950/40 border border-red-500/40 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center">
+            <i data-lucide="lock" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-red-300">Pausa Instantánea Activa</h4>
+            <p class="text-sm text-red-200/80">Todos los dispositivos de este perfil están bloqueados ahora mismo.</p>
+          </div>
+        </div>
+        <button onclick="toggleInstantLock(false)" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition">
+          Reanudar Acceso
+        </button>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Metric 1: Screen Time Today -->
+        <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Tiempo en Pantalla Hoy</span>
+            <i data-lucide="clock" class="w-4 h-4 text-[#FFB800]"></i>
+          </div>
+          <div>
+            <div class="flex items-baseline space-x-2">
+              <span id="metricTimeUsed" class="text-3xl font-display font-black text-white">1h 15m</span>
+              <span id="metricTimeLimit" class="text-sm text-slate-400">/ 2h 00m límite</span>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-800 h-2.5 rounded-full mt-3 overflow-hidden">
+              <div id="metricTimeProgress" class="bg-gradient-to-r from-amber-400 to-[#FFB800] h-full rounded-full transition-all duration-500" style="width: 62%;"></div>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-[#283548] flex items-center justify-between text-xs">
+            <span id="metricTimeRemaining" class="text-emerald-400 font-medium">Quedan 45 min</span>
+            <button onclick="addExtraTime(30)" class="text-[#FFB800] hover:underline font-semibold">+30 min</button>
+          </div>
+        </div>
+
+        <!-- Metric 2: Web Filter Status -->
+        <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Filtro Web Norton</span>
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div>
+            <div class="text-3xl font-display font-black text-white" id="metricBlockedWebCount">4</div>
+            <p class="text-xs text-slate-400 mt-1">Categorías de alto riesgo bloqueadas</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-[#283548] flex items-center justify-between text-xs">
+            <span class="text-slate-300">Búsqueda Segura</span>
+            <span id="metricSafeSearchStatus" class="font-semibold text-emerald-400">Activa</span>
+          </div>
+        </div>
+
+        <!-- Metric 3: Active Location -->
+        <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Última Ubicación</span>
+            <i data-lucide="map-pin" class="w-4 h-4 text-sky-400"></i>
+          </div>
+          <div>
+            <div id="metricZone" class="text-base font-bold text-white truncate">Colegio San Patricio</div>
+            <p id="metricAddress" class="text-xs text-slate-400 truncate mt-0.5">Av. de la Paz 42, Madrid</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-[#283548] flex items-center justify-between text-xs">
+            <span id="metricLocationTime" class="text-slate-400">Hace 3 min</span>
+            <button onclick="switchTab('location')" class="text-sky-400 hover:underline font-semibold">Ver mapa</button>
+          </div>
+        </div>
+
+        <!-- Metric 4: Connected Devices -->
+        <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Dispositivos</span>
+            <i data-lucide="smartphone" class="w-4 h-4 text-violet-400"></i>
+          </div>
+          <div>
+            <div class="flex items-baseline space-x-1.5">
+              <span id="metricDeviceCount" class="text-3xl font-display font-black text-white">2</span>
+              <span class="text-xs text-slate-400">vinculados</span>
+            </div>
+            <p class="text-xs text-emerald-400 mt-1 flex items-center space-x-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>1 dispositivo en línea ahora</span>
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-[#283548] flex items-center justify-between text-xs">
+            <span class="text-slate-400">Agente Norton v4.8</span>
+            <span class="text-emerald-400 font-semibold">Sincronizado</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Main Overview 2-Column Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left 2 Cols: Activity Feed -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548]">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="activity" class="w-5 h-5 text-[#FFB800]"></i>
+                <h3 class="font-display font-bold text-lg text-white">Registro de Actividad en Vivo</h3>
+              </div>
+              <span class="text-xs text-slate-400">Tiempo real</span>
+            </div>
+            
+            <!-- Activity List -->
+            <div id="overviewActivityList" class="space-y-3">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 1 Col: Connected Devices Cards & Pending Requests -->
+        <div class="space-y-6">
+          
+          <!-- Pending Requests Mini Card -->
+          <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548]">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-display font-bold text-base text-white flex items-center space-x-2">
+                <i data-lucide="bell" class="w-4 h-4 text-[#FFB800]"></i>
+                <span>Solicitudes del Niño</span>
+              </h3>
+              <span id="overviewPendingCount" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-[#FFB800]">0 pendientes</span>
+            </div>
+            <div id="overviewRequestsList" class="space-y-2.5">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <!-- Devices Status Card -->
+          <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548]">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-display font-bold text-base text-white flex items-center space-x-2">
+                <i data-lucide="laptop" class="w-4 h-4 text-violet-400"></i>
+                <span>Dispositivos Supervisados</span>
+              </h3>
+            </div>
+            <div id="overviewDevicesList" class="space-y-3">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ================= TAB 2: TIME SUPERVISION ================= -->
+    <section id="content-time" class="tab-content hidden space-y-6">
+      
+      <!-- Time Control Header Banner -->
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-[#161F30] to-[#1E293B] border border-[#283548] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-display font-bold text-white flex items-center space-x-2">
+            <i data-lucide="hourglass" class="w-5 h-5 text-[#FFB800]"></i>
+            <span>Gestión y Supervisión de Tiempo en Pantalla</span>
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">Configura límites diarios, horarios permitidos y bloquea automáticamente durante horas escolares o de descanso.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="addExtraTime(15)" class="px-3 py-2 bg-[#283548] hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition">+15 min</button>
+          <button onclick="addExtraTime(30)" class="px-3.5 py-2 bg-[#FFB800] hover:bg-[#E5A600] text-black rounded-xl text-xs font-extrabold transition shadow-md">+30 min</button>
+          <button onclick="addExtraTime(60)" class="px-3 py-2 bg-[#283548] hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition">+1 hora</button>
+        </div>
+      </div>
+
+      <!-- Time Settings Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Daily Limit Slider Card -->
+        <div class="p-6 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-white">Límite Diario de Pantalla</h3>
+              <span id="dailyLimitBadge" class="px-2.5 py-1 bg-amber-500/20 text-[#FFB800] font-black text-sm rounded-lg">2h 00m</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-6">Cuando el niño alcance este tiempo en el día, todas las aplicaciones y la navegación se pausarán automáticamente.</p>
+            
+            <!-- Slider -->
+            <input type="range" id="dailyLimitSlider" min="30" max="360" step="15" value="120" oninput="updateDailyLimitPreview(this.value)" class="w-full accent-[#FFB800] cursor-pointer">
+            <div class="flex justify-between text-[11px] text-slate-500 mt-2 font-medium">
+              <span>30 min</span>
+              <span>2 hrs</span>
+              <span>4 hrs</span>
+              <span>6 hrs</span>
+            </div>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-[#283548] flex justify-end">
+            <button onclick="saveDailyLimit()" class="px-4 py-2 bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs rounded-xl transition">Guardar Límite</button>
+          </div>
+        </div>
+
+        <!-- School Time / Horario Escolar Toggle -->
+        <div class="p-6 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-400"></i>
+                <h3 class="font-bold text-white">Modo Horario Escolar</h3>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="schoolModeToggle" onchange="toggleSchoolMode(this.checked)" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Durante el horario escolar (08:00 AM a 02:00 PM de Lunes a Viernes), el dispositivo se bloquea para juegos y redes sociales, permitiendo únicamente sitios web educativos y llamadas de emergencia.
+            </p>
+          </div>
+          <div class="mt-6 p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center space-x-3 text-xs text-slate-300">
+            <i data-lucide="info" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+            <span>Mantiene a los niños concentrados en el aula sin distracciones.</span>
+          </div>
+        </div>
+
+        <!-- Night Routine / Toque de Queda -->
+        <div class="p-6 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="moon" class="w-5 h-5 text-indigo-400"></i>
+                <h3 class="font-bold text-white">Toque de Queda Nocturno</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">21:00 - 07:00</span>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Bloquea automáticamente las pantallas a la hora de dormir para promover un descanso saludable y evitar desvelos frente a la pantalla.
+            </p>
+          </div>
+          <div class="mt-6 p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 text-xs text-slate-400">
+            <span>Dispositivos bloqueados cada noche a partir de las 09:00 PM.</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Weekly Schedule Table -->
+      <div class="p-6 rounded-2xl bg-[#161F30] border border-[#283548]">
+        <h3 class="font-display font-bold text-base text-white mb-4">Horario Semanal Permitido</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3" id="weekScheduleCards">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================= TAB 3: WEB FILTER ================= -->
+    <section id="content-web" class="tab-content hidden space-y-6">
+      
+      <!-- SafeSearch & Filter Mode Bar -->
+      <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-display font-bold text-white flex items-center space-x-2">
+            <i data-lucide="shield" class="w-5 h-5 text-[#FFB800]"></i>
+            <span>Supervisión Web y Filtro de Contenidos</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Controla qué sitios web y categorías puede visitar tu hijo en cualquier navegador.</p>
+        </div>
+
+        <!-- SafeSearch Toggle Switch -->
+        <div class="flex items-center space-x-3 bg-slate-800/80 px-4 py-2.5 rounded-xl border border-slate-700">
+          <div>
+            <div class="text-xs font-bold text-white">Búsqueda Segura (SafeSearch)</div>
+            <div class="text-[11px] text-slate-400">Filtra contenido explícito en Google, Bing y YouTube</div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer ml-2">
+            <input type="checkbox" id="safeSearchToggle" onchange="toggleSafeSearch(this.checked)" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FFB800]"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Categories Grid -->
+      <div>
+        <h3 class="font-bold text-sm text-slate-400 uppercase tracking-wider mb-3">Categorías de Sitios Web</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="webCategoriesGrid">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Custom Allowed & Blocked Domains -->
+      <div class="p-6 rounded-2xl bg-[#161F30] border border-[#283548]">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="font-display font-bold text-base text-white">Reglas Específicas de Sitios Web</h3>
+            <p class="text-xs text-slate-400">Permite o bloquea dominios concretos independientemente de su categoría general.</p>
+          </div>
+          
+          <!-- Add Domain Form -->
+          <div class="flex items-center space-x-2">
+            <input type="text" id="newRuleDomain" placeholder="ej. roblox.com o youtube.com" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FFB800] w-48 sm:w-60">
+            <select id="newRulePolicy" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#FFB800]">
+              <option value="blocked">Bloquear</option>
+              <option value="warning">Advertir</option>
+              <option value="allowed">Permitir</option>
+            </select>
+            <button onclick="addCustomRule()" class="px-4 py-2 bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs rounded-xl transition">Añadir</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-800/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+              <tr>
+                <th class="py-2.5 px-3">Sitio Web / Dominio</th>
+                <th class="py-2.5 px-3">Acción</th>
+                <th class="py-2.5 px-3">Nota</th>
+                <th class="py-2.5 px-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="customRulesTableBody" class="divide-y divide-slate-800">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================= TAB 4: APP SUPERVISION ================= -->
+    <section id="content-apps" class="tab-content hidden space-y-6">
+      
+      <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-display font-bold text-white flex items-center space-x-2">
+            <i data-lucide="layout-grid" class="w-5 h-5 text-[#FFB800]"></i>
+            <span>Supervisión y Control de Aplicaciones</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Controla qué aplicaciones puede abrir tu hijo y asigna límites individuales de tiempo.</p>
+        </div>
+        <div class="text-xs text-slate-400">
+          <span class="text-white font-bold" id="totalAppsCount">7</span> aplicaciones supervisadas
+        </div>
+      </div>
+
+      <!-- Apps List -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="appsListGrid">
+        <!-- Rendered by JS -->
+      </div>
+
+    </section>
+
+    <!-- ================= TAB 5: LOCATION & GEOFENCES ================= -->
+    <section id="content-location" class="tab-content hidden space-y-6">
+      
+      <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-display font-bold text-white flex items-center space-x-2">
+            <i data-lucide="map-pin" class="w-5 h-5 text-[#FFB800]"></i>
+            <span>Localización en Tiempo Real y Zonas Seguras (Geocercas)</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Rastrea la posición GPS del móvil de tu hijo y recibe alertas cuando llegue o salga del colegio o de casa.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="simulateCheckIn()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-md">
+            <i data-lucide="navigation" class="w-3.5 h-3.5"></i>
+            <span>Check-in "Ya Llegué"</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Map & Geofence Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Styled Interactive Real OpenStreetMap View -->
+        <div class="lg:col-span-2 p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 badge-pulse"></span>
+              <span class="text-xs font-bold text-slate-300">Mapa Real en Vivo (OpenStreetMap GPS)</span>
+            </div>
+            <div class="flex items-center space-x-2 text-xs">
+              <button onclick="recenterMapOnChild()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFB800] rounded-lg border border-slate-700 font-bold transition">
+                Centrar en Niño
+              </button>
+              <span class="text-slate-400" id="mapLastUpdate">Actualizado hace instantes</span>
+            </div>
+          </div>
+
+          <!-- Real OpenStreetMap Container -->
+          <div id="realOsmMap" class="w-full h-[420px] rounded-xl overflow-hidden border border-slate-700 z-10 shadow-inner"></div>
+
+          <!-- Bottom Coordinates and Address Bar -->
+          <div class="mt-3 bg-[#111827]/95 border border-[#283548] p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+            <div class="flex items-center space-x-2 truncate">
+              <i data-lucide="map-pin" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+              <span id="mapCurrentLocationText" class="text-slate-200 truncate font-semibold">Ubicación GPS en vivo</span>
+            </div>
+            <div class="flex items-center space-x-3 text-[11px] text-slate-400">
+              <span id="mapCoordsText" class="font-mono text-amber-300">Lat: --, Lng: --</span>
+              <span class="text-emerald-400 font-bold">● GPS Satelital</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Geofences List & Settings -->
+        <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-display font-bold text-base text-white">Zonas Seguras (Geocercas)</h3>
+              <span class="text-xs text-slate-400">3 configuradas</span>
+            </div>
+            
+            <div id="geofencesList" class="space-y-3">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-[#283548]">
+            <button onclick="showToast('Función para delimitar nueva geocerca en mapa abierta.', 'info')" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-[#FFB800]"></i>
+              <span>Añadir Nueva Zona Segura</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ================= TAB 6: ALERTS & REQUESTS ================= -->
+    <section id="content-requests" class="tab-content hidden space-y-6">
+      
+      <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-display font-bold text-white flex items-center space-x-2">
+            <i data-lucide="inbox" class="w-5 h-5 text-[#FFB800]"></i>
+            <span>Bandeja de Solicitudes y Alertas Parentales</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Aprueba o rechaza peticiones de más tiempo de pantalla o desbloqueo de páginas web enviadas por tus hijos.</p>
+        </div>
+      </div>
+
+      <!-- Requests Container -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="allRequestsGrid">
+        <!-- Rendered by JS -->
+      </div>
+
+    </section>
+
+    <!-- ================= TAB 7: LIVE CHILD COMPANION SIMULATOR ================= -->
+    <section id="content-simulator" class="tab-content hidden space-y-6">
+      
+      <div class="p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#161F30] to-[#1E293B] border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-display font-bold text-white flex items-center space-x-2">
+            <i data-lucide="smartphone" class="w-5 h-5 text-[#FFB800]"></i>
+            <span>Simulador de Dispositivo del Niño en Tiempo Real</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Prueba cómo reacciona el smartphone de tu hijo cuando bloqueas el dispositivo con la <b>Pausa Instantánea</b>, cuando intenta entrar a páginas restringidas o cuando se le acaba el tiempo.
+          </p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-amber-300 bg-amber-500/20 px-3 py-1.5 rounded-lg border border-amber-500/30 font-semibold">
+            Modo Niño Activo: <span id="simChildName">Lucas</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Simulator Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Left: Realistic Mobile Frame -->
+        <div class="lg:col-span-5 flex justify-center">
+          <div class="w-[340px] h-[680px] bg-black rounded-[48px] p-3 shadow-2xl border-4 border-slate-800 relative flex flex-col overflow-hidden ring-1 ring-slate-700">
+            
+            <!-- Phone Notch -->
+            <div class="phone-notch z-30 flex items-center justify-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800"></span>
+              <span class="w-12 h-1 bg-slate-900 rounded-full"></span>
+            </div>
+
+            <!-- Phone Screen Content -->
+            <div id="phoneScreen" class="w-full flex-1 bg-slate-950 rounded-[38px] overflow-hidden flex flex-col relative text-white">
+              
+              <!-- Phone Status Bar -->
+              <div class="px-6 pt-2 pb-1 flex justify-between items-center text-[11px] font-semibold text-slate-300 z-20">
+                <span id="simPhoneClock">12:30</span>
+                <div class="flex items-center space-x-1.5">
+                  <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+                  <i data-lucide="battery" class="w-3.5 h-3.5 text-emerald-400"></i>
+                  <span id="simPhoneBattery">78%</span>
+                </div>
+              </div>
+
+              <!-- VIEW A: NORMAL UNLOCKED CHILD SCREEN -->
+              <div id="simUnlockedView" class="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
+                
+                <!-- Norton Companion Header -->
+                <div class="flex items-center justify-between p-3 rounded-2xl bg-[#161F30] border border-[#283548]">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-7 h-7 rounded-lg bg-[#FFB800] text-black flex items-center justify-center font-bold text-xs">
+                      🛡️
+                    </div>
+                    <div>
+                      <div class="text-xs font-bold text-white">Norton Companion</div>
+                      <div class="text-[10px] text-emerald-400 flex items-center space-x-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span>Dispositivo Protegido</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button onclick="triggerChildSOS()" class="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white font-extrabold text-[10px] rounded-lg tracking-wider transition">
+                    SOS
+                  </button>
+                </div>
+
+                <!-- Screen Time Countdown Card -->
+                <div class="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-[#161F30] border border-[#283548] text-center">
+                  <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Tiempo Restante Hoy</div>
+                  <div id="simRemainingTimeDisplay" class="text-3xl font-display font-black text-[#FFB800] my-1">45 min</div>
+                  <p class="text-[10px] text-slate-400">Límite diario establecido por tus padres</p>
+                  <button onclick="openRequestModal('extra_time')" class="mt-3 w-full py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[#FFB800] text-xs font-bold border border-amber-500/30 transition">
+                    Pedir más tiempo a mis padres
+                  </button>
+                </div>
+
+                <!-- App Icons Grid (Simulated Apps) -->
+                <div>
+                  <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mis Aplicaciones</div>
+                  <div class="grid grid-cols-4 gap-2 text-center" id="simAppIconsGrid">
+                    <!-- Rendered by JS -->
+                  </div>
+                </div>
+
+                <!-- Emergency Contact Bar -->
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">📞</span>
+                    <span class="font-medium text-slate-200">Llamar a Papá / Mamá</span>
+                  </div>
+                  <button onclick="showToast('Conectando llamada prioritaria a los padres...', 'info')" class="px-2.5 py-1 rounded bg-emerald-600 text-white font-bold text-[11px]">Llamar</button>
+                </div>
+
+              </div>
+
+              <!-- VIEW B: INSTANT LOCK / SCREEN TIME EXPIRED SCREEN -->
+              <div id="simLockedView" class="hidden flex-1 flex flex-col items-center justify-center p-6 text-center bg-[#0F172A] relative">
+                <div class="w-16 h-16 rounded-3xl bg-red-500/20 text-red-500 border border-red-500/40 flex items-center justify-center mb-4">
+                  <i data-lucide="lock" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-xl font-display font-black text-white">Dispositivo Pausado</h3>
+                <p id="simLockedReasonText" class="text-xs text-slate-300 mt-2 leading-relaxed">
+                  Tus padres han puesto en pausa este dispositivo. Es hora de desconectarse, estudiar o pasar tiempo en familia.
+                </p>
+
+                <!-- Ask for time button on lock screen -->
+                <div class="w-full mt-6 space-y-2">
+                  <button onclick="openRequestModal('extra_time')" class="w-full py-2.5 rounded-xl bg-[#FFB800] text-black font-extrabold text-xs shadow-lg hover:bg-[#E5A600] transition">
+                    Solicitar tiempo adicional
+                  </button>
+                  <button onclick="showToast('Llamada de emergencia autorizada iniciada.', 'info')" class="w-full py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-700 transition">
+                    Llamada de Emergencia a Padres
+                  </button>
+                </div>
+
+                <div class="absolute bottom-4 text-[10px] text-slate-500">
+                  Protección Norton Family Premier
+                </div>
+              </div>
+
+              <!-- VIEW C: WEB BLOCKED SCREEN (NORTON WEB FILTER) -->
+              <div id="simWebBlockedView" class="hidden flex-1 flex flex-col p-4 bg-slate-950 text-white overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-4">
+                  <div class="flex items-center space-x-1.5 text-xs text-slate-400">
+                    <i data-lucide="shield-alert" class="w-4 h-4 text-red-500"></i>
+                    <span class="font-bold text-red-400">Norton Web Protection</span>
+                  </div>
+                  <button onclick="closeWebBlockedView()" class="text-xs text-slate-400 hover:text-white">✕ Cerrar</button>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 text-center my-auto">
+                  <div class="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 mx-auto flex items-center justify-center mb-3">
+                    <i data-lucide="ban" class="w-6 h-6"></i>
+                  </div>
+                  <h4 class="font-display font-bold text-base text-red-200">Sitio Web Bloqueado</h4>
+                  <p id="simBlockedUrlLabel" class="text-xs font-mono text-slate-300 bg-slate-900/80 px-2 py-1 rounded my-2 break-all">casino-online.com</p>
+                  <p id="simBlockedCategoryReason" class="text-xs text-slate-300 leading-relaxed">
+                    Este sitio no está permitido debido a la categoría de seguridad <b>Juegos de Azar</b> configurada por tus padres.
+                  </p>
+                  
+                  <div class="mt-4 pt-3 border-t border-red-500/20">
+                    <button onclick="openRequestModal('unblock_website')" class="w-full py-2 rounded-xl bg-[#FFB800] text-black font-extrabold text-xs">
+                      Pedir permiso para visitar esta web
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Phone Home Indicator Bar -->
+            <div class="w-28 h-1 bg-slate-700 rounded-full mx-auto mt-2"></div>
+          </div>
+        </div>
+
+        <!-- Right: Simulator Control Console & Web Testing -->
+        <div class="lg:col-span-7 space-y-6">
+          
+          <!-- Test Web Navigation Card -->
+          <div class="p-6 rounded-2xl bg-[#161F30] border border-[#283548]">
+            <h3 class="font-display font-bold text-base text-white flex items-center space-x-2 mb-2">
+              <i data-lucide="globe" class="w-4 h-4 text-[#FFB800]"></i>
+              <span>Probar Navegador Web en el Móvil del Niño</span>
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">
+              Escribe cualquier dirección web o elige un ejemplo para comprobar cómo reacciona en tiempo real el filtro Norton configurado en el panel.
+            </p>
+
+            <!-- URL Input & Go Button -->
+            <div class="flex items-center space-x-2 mb-3">
+              <div class="relative flex-1">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+                <input type="text" id="simBrowseUrlInput" value="casino-vip-slots.com" placeholder="ej. roblox.com o wikipedia.org" class="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#FFB800]">
+              </div>
+              <button onclick="simulateBrowseUrl()" class="px-5 py-2.5 bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs rounded-xl transition flex items-center space-x-1.5 shadow-md">
+                <span>Navegar</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <!-- Quick Example URL Chips -->
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="text-slate-400 text-[11px] self-center">Pruebas rápidas:</span>
+              <button onclick="setSimUrl('casino-slots-777.com')" class="px-2.5 py-1 rounded-lg bg-red-950/60 border border-red-500/30 text-red-300 hover:bg-red-900/60 transition">🎰 Casino (Bloqueado)</button>
+              <button onclick="setSimUrl('adult-xxx-portal.net')" class="px-2.5 py-1 rounded-lg bg-red-950/60 border border-red-500/30 text-red-300 hover:bg-red-900/60 transition">🔞 Adultos (Bloqueado)</button>
+              <button onclick="setSimUrl('instagram.com')" class="px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-500/30 text-amber-300 hover:bg-amber-900/60 transition">💬 Red Social (Aviso)</button>
+              <button onclick="setSimUrl('wikipedia.org')" class="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-900/60 transition">📚 Wikipedia (Permitido)</button>
+              <button onclick="setSimUrl('scratch.mit.edu')" class="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-900/60 transition">💻 Scratch (Regla Blanca)</button>
+            </div>
+
+            <!-- Live Browser Test Result Console -->
+            <div id="simBrowseResultBox" class="mt-4 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs hidden">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <!-- Instant Simulation Shortcuts -->
+          <div class="p-6 rounded-2xl bg-[#161F30] border border-[#283548]">
+            <h3 class="font-display font-bold text-base text-white mb-3">Acciones de Prueba en Vivo</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button onclick="toggleInstantLock()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left transition flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center">
+                  <i data-lucide="lock" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">Alternar Pausa Instantánea</div>
+                  <div class="text-[10px] text-slate-400">Bloquea o desbloquea la pantalla</div>
+                </div>
+              </button>
+
+              <button onclick="openRequestModal('extra_time')" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left transition flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-[#FFB800] flex items-center justify-center">
+                  <i data-lucide="send" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">Enviar Petición de Tiempo</div>
+                  <div class="text-[10px] text-slate-400">Simula al niño pidiendo +30 min</div>
+                </div>
+              </button>
+
+              <button onclick="triggerChildSOS()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left transition flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center">
+                  <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">Pulsar Botón de Pánico SOS</div>
+                  <div class="text-[10px] text-slate-400">Envía alerta máxima al panel</div>
+                </div>
+              </button>
+
+              <button onclick="simulateCheckIn()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left transition flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <i data-lucide="check-circle" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">Simular "Ya llegué a Casa"</div>
+                  <div class="text-[10px] text-slate-400">Notificación de llegada a geocerca</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================= MODAL: CONNECT REAL PHONE QR ================= -->
+  <div id="qrModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#161F30] border border-[#283548] rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl text-center">
+      <div class="flex items-center justify-between border-b border-[#283548] pb-3">
+        <div class="flex items-center space-x-2 text-left">
+          <div class="w-8 h-8 rounded-xl bg-[#FFB800] text-black flex items-center justify-center font-black">
+            📱
+          </div>
+          <div>
+            <h3 class="font-display font-black text-base text-white">Vincular Celular Real</h3>
+            <p class="text-[11px] text-slate-400">Prueba el bloqueo instantáneo en tu mano</p>
+          </div>
+        </div>
+        <button onclick="closeQrModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <!-- QR Code Image -->
+      <div class="p-4 bg-white rounded-2xl inline-block mx-auto shadow-xl">
+        <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=http://192.168.1.124:3080/child" alt="QR Code" class="w-48 h-48 mx-auto">
+      </div>
+
+      <div class="space-y-2 text-left bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 text-xs">
+        <div class="font-bold text-[#FFB800] flex items-center space-x-1.5">
+          <i data-lucide="info" class="w-4 h-4"></i>
+          <span>Pasos para probar en tu celular:</span>
+        </div>
+        <ol class="list-decimal list-inside space-y-1 text-slate-300">
+          <li>Asegúrate de que tu celular esté conectado a la <b>misma red Wi-Fi</b> de esta PC.</li>
+          <li>Abre la cámara de tu teléfono y escanea este código QR.</li>
+          <li>O abre el navegador de tu celular y escribe directamente:</li>
+        </ol>
+        <div class="p-2 rounded-xl bg-black font-mono text-[#FFB800] text-center font-bold break-all select-all text-xs" id="qrDirectUrlText">
+          http://192.168.1.124:3080/child
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200 text-left">
+        💡 <b>Cómo funciona la prueba:</b> Una vez abierto en tu celular, haz clic en el botón <b>"Pausa Instantánea"</b> en esta pantalla de la computadora. ¡Verás cómo la pantalla de tu celular vibra, suena y se bloquea al instante!
+      </div>
+
+      <button onclick="closeQrModal()" class="w-full py-2.5 rounded-xl bg-[#FFB800] text-black font-extrabold text-xs shadow-md">
+        Entendido
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CHILD REQUEST FORM ================= -->
+  <div id="requestModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#161F30] border border-[#283548] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="text-xl">📩</span>
+          <h3 class="font-display font-bold text-lg text-white" id="modalRequestTitle">Pedir más tiempo a mis padres</h3>
+        </div>
+        <button onclick="closeRequestModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+
+      <input type="hidden" id="modalRequestType" value="extra_time">
+
+      <div id="modalTargetField" class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-300">Tiempo solicitado</label>
+        <select id="modalRequestedMinutes" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white">
+          <option value="15">+15 minutos</option>
+          <option value="30" selected>+30 minutos</option>
+          <option value="60">+1 hora</option>
+        </select>
+      </div>
+
+      <div id="modalCustomTargetField" class="space-y-1.5 hidden">
+        <label class="text-xs font-semibold text-slate-300">Sitio web solicitado</label>
+        <input type="text" id="modalRequestedUrl" placeholder="ej. scratch.mit.edu" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white">
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-300">Mensaje para tus padres</label>
+        <textarea id="modalRequestMessage" rows="3" placeholder="Por favor, necesito terminar mi tarea de ciencias..." class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#FFB800]"></textarea>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeRequestModal()" class="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white">Cancelar</button>
+        <button onclick="submitChildRequest()" class="px-4 py-2 bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs rounded-xl shadow-md transition">
+          Enviar Petición
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT APPLICATION CORE ================= -->
+  <script>
+    // Global State
+    let appData = {
+      activeChildId: 'child_1',
+      children: [],
+      webCategories: [],
+      customWebRules: [],
+      monitoredApps: [],
+      geofences: [],
+      requests: [],
+      activityLogs: [],
+      schedules: []
+    };
+
+    let activeTab = 'overview';
+
+    // Fetch initial data
+    async function loadData() {
+      try {
+        const res = await fetch('/api/data');
+        if (!res.ok) throw new Error('Error de conexión con el servidor');
+        appData = await res.json();
+        renderAll();
+      } catch (err) {
+        console.error('Error cargando datos:', err);
+        showToast('Error cargando los datos del servidor.', 'danger');
+      }
+    }
+
+    function getActiveChild() {
+      return appData.children.find(c => c.id === appData.activeChildId) || appData.children[0] || {};
+    }
+
+    // Render Everything
+    function renderAll() {
+      renderChildSelectors();
+      renderInstantLockState();
+      renderOverviewTab();
+      renderTimeTab();
+      renderWebTab();
+      renderAppsTab();
+      renderLocationTab();
+      renderRequestsTab();
+      renderSimulatorView();
+
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    // Child Selectors (Header)
+    function renderChildSelectors() {
+      const active = getActiveChild();
+      const containerDesktop = document.getElementById('childSelectorContainer');
+      const containerMobile = document.getElementById('childSelectorMobile');
+
+      const html = appData.children.map(child => {
+        const isCurrent = child.id === active.id;
+        const bg = isCurrent ? 'bg-[#FFB800] text-black font-extrabold shadow-sm' : 'text-slate-300 hover:text-white font-medium';
+        return `
+          <button onclick="selectChild('${child.id}')" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs transition ${bg}">
+            <span class="text-sm">${child.avatar}</span>
+            <span>${child.name.split(' ')[0]}</span>
+            <span class="text-[10px] opacity-75">(${child.age}a)</span>
+          </button>
+        `;
+      }).join('');
+
+      containerDesktop.innerHTML = html;
+      containerMobile.innerHTML = html;
+    }
+
+    async function selectChild(childId) {
+      try {
+        const res = await fetch('/api/children/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId })
+        });
+        if (res.ok) {
+          appData.activeChildId = childId;
+          renderAll();
+          showToast(`Perfil cambiado a ${getActiveChild().name}`, 'info');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Instant Lock
+    function renderInstantLockState() {
+      const child = getActiveChild();
+      const isLocked = !!child.instantLockActive;
+      const btn = document.getElementById('instantLockBtn');
+      const text = document.getElementById('instantLockText');
+      const banner = document.getElementById('instantLockBanner');
+
+      if (isLocked) {
+        btn.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-200 shadow-lg bg-red-600 hover:bg-red-500 text-white animate-pulse";
+        text.innerText = "🔓 Desbloquear Todo (Pausa Activa)";
+        if (banner) banner.classList.remove('hidden');
+      } else {
+        btn.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-200 shadow-lg bg-[#FFB800] hover:bg-[#E5A600] text-black";
+        text.innerText = "🛑 Bloquear Todo";
+        if (banner) banner.classList.add('hidden');
+      }
+    }
+
+    async function toggleInstantLock(forceState) {
+      const child = getActiveChild();
+      const targetState = forceState !== undefined ? forceState : !child.instantLockActive;
+      try {
+        const res = await fetch('/api/instant-lock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ all: true, locked: targetState })
+        });
+        const data = await res.json();
+        if (data.success) {
+          appData.children.forEach(c => { c.instantLockActive = data.instantLockActive; });
+          if (data.log) appData.activityLogs.unshift(data.log);
+          renderAll();
+          showToast(
+            targetState ? `🚨 ¡TODOS LOS DISPOSITIVOS Y CELULARES BLOQUEADOS!` : `Dispositivos desbloqueados y reanudados`,
+            targetState ? 'danger' : 'success'
+          );
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Add extra time
+    async function addExtraTime(minutes) {
+      const child = getActiveChild();
+      try {
+        const res = await fetch('/api/time/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: child.id, minutes, unlockIfFull: true })
+        });
+        const data = await res.json();
+        if (data.success) {
+          child.dailyLimitMinutes = data.dailyLimitMinutes;
+          child.instantLockActive = false;
+          await loadData();
+          showToast(`Se han añadido +${minutes} minutos a ${child.name}`, 'success');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Tab 1: Overview
+    function renderOverviewTab() {
+      const child = getActiveChild();
+      
+      // Time metric
+      const usedH = Math.floor(child.usedTodayMinutes / 60);
+      const usedM = child.usedTodayMinutes % 60;
+      const limitH = Math.floor(child.dailyLimitMinutes / 60);
+      const limitM = child.dailyLimitMinutes % 60;
+      const rem = Math.max(0, child.dailyLimitMinutes - child.usedTodayMinutes);
+      const remH = Math.floor(rem / 60);
+      const remM = rem % 60;
+
+      document.getElementById('metricTimeUsed').innerText = `${usedH}h ${usedM}m`;
+      document.getElementById('metricTimeLimit').innerText = `/ ${limitH}h ${limitM > 0 ? limitM + 'm ' : ''}límite`;
+      const pct = Math.min(100, Math.round((child.usedTodayMinutes / child.dailyLimitMinutes) * 100));
+      document.getElementById('metricTimeProgress').style.width = `${pct}%`;
+      
+      const remElem = document.getElementById('metricTimeRemaining');
+      if (child.usedTodayMinutes >= child.dailyLimitMinutes) {
+        remElem.innerText = 'Límite alcanzado';
+        remElem.className = 'text-red-400 font-bold';
+      } else {
+        remElem.innerText = `Quedan ${remH > 0 ? remH + 'h ' : ''}${remM} min`;
+        remElem.className = 'text-emerald-400 font-medium';
+      }
+
+      // SafeSearch & Web
+      const blockedCats = appData.webCategories.filter(c => c.action === 'blocked').length;
+      document.getElementById('metricBlockedWebCount').innerText = blockedCats;
+      document.getElementById('metricSafeSearchStatus').innerText = child.safeSearchEnabled ? 'Activa' : 'Desactivada';
+      document.getElementById('metricSafeSearchStatus').className = child.safeSearchEnabled ? 'font-semibold text-emerald-400' : 'font-semibold text-slate-400';
+
+      // Location
+      document.getElementById('metricZone').innerText = child.currentLocation?.zone || 'Ubicación actual';
+      document.getElementById('metricAddress').innerText = child.currentLocation?.address || 'GPS';
+      document.getElementById('metricLocationTime').innerText = child.currentLocation?.updatedAt || 'Reciente';
+
+      // Devices
+      document.getElementById('metricDeviceCount').innerText = child.devices?.length || 0;
+
+      // Activity List
+      const childLogs = appData.activityLogs.filter(l => l.childId === child.id).slice(0, 5);
+      const activityContainer = document.getElementById('overviewActivityList');
+      if (childLogs.length === 0) {
+        activityContainer.innerHTML = `<p class="text-xs text-slate-500 py-4 text-center">No hay actividad reciente registrada hoy.</p>`;
+      } else {
+        activityContainer.innerHTML = childLogs.map(log => {
+          let badge = 'bg-slate-800 text-slate-300';
+          let icon = 'info';
+          if (log.status === 'blocked') {
+            badge = 'bg-red-500/20 text-red-400 border border-red-500/30';
+            icon = 'shield-alert';
+          } else if (log.status === 'warning') {
+            badge = 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
+            icon = 'alert-triangle';
+          } else if (log.status === 'allowed') {
+            badge = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            icon = 'check-circle';
+          }
+
+          return `
+            <div class="p-3 rounded-xl bg-slate-800/40 border border-[#283548] flex items-start justify-between">
+              <div class="flex items-start space-x-3">
+                <span class="p-1.5 rounded-lg ${badge} mt-0.5"><i data-lucide="${icon}" class="w-3.5 h-3.5"></i></span>
+                <div>
+                  <div class="text-xs font-bold text-white">${log.title}</div>
+                  <div class="text-xs text-slate-400 mt-0.5">${log.details}</div>
+                </div>
+              </div>
+              <span class="text-[11px] text-slate-500 whitespace-nowrap ml-3">${log.timestamp}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Pending requests
+      const childRequests = appData.requests.filter(r => r.childId === child.id && r.status === 'pending');
+      document.getElementById('overviewPendingCount').innerText = `${childRequests.length} pendientes`;
+      const requestsContainer = document.getElementById('overviewRequestsList');
+      if (childRequests.length === 0) {
+        requestsContainer.innerHTML = `<p class="text-xs text-slate-500 py-3 text-center">No hay solicitudes pendientes.</p>`;
+      } else {
+        requestsContainer.innerHTML = childRequests.map(r => `
+          <div class="p-3 rounded-xl bg-slate-800/60 border border-amber-500/20 text-xs space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-[#FFB800]">${r.type === 'extra_time' ? '⏳ Tiempo Extra' : '🌐 Desbloqueo Web'}</span>
+              <span class="text-[10px] text-slate-500">${r.timestamp}</span>
+            </div>
+            <p class="text-slate-300 text-xs font-medium">"${r.message}"</p>
+            <div class="flex justify-end space-x-2 pt-1">
+              <button onclick="respondRequest('${r.id}', 'rejected')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold">Rechazar</button>
+              <button onclick="respondRequest('${r.id}', 'approved')" class="px-3 py-1 rounded-lg bg-[#FFB800] hover:bg-[#E5A600] text-black text-[11px] font-extrabold shadow-sm">Aprobar</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Devices list in Overview
+      const devicesContainer = document.getElementById('overviewDevicesList');
+      if (!child.devices || child.devices.length === 0) {
+        const qrUrl = appData.serverNetwork?.mobileChildUrl || 'http://192.168.1.124:3080/child';
+        devicesContainer.innerHTML = `
+          <div class="p-4 rounded-xl bg-amber-500/10 border border-dashed border-amber-500/30 text-center space-y-2">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-[#FFB800] mx-auto flex items-center justify-center font-bold text-lg">
+              📱
+            </div>
+            <div class="text-xs font-bold text-amber-300">Tu Celular aparecerá aquí en cuanto lo abras</div>
+            <p class="text-[11px] text-slate-400">Abre <b class="text-slate-200">${qrUrl}</b> en tu celular.</p>
+            <button onclick="openQrModal()" class="px-3.5 py-1.5 bg-[#FFB800] text-black font-extrabold text-[11px] rounded-lg shadow transition hover:bg-[#E5A600]">
+              Escanear Código QR
+            </button>
+          </div>
+        `;
+      } else {
+        devicesContainer.innerHTML = child.devices.map(dev => `
+          <div class="p-3 rounded-xl bg-slate-800/60 border border-emerald-500/30 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                📱
+              </div>
+              <div>
+                <div class="text-xs font-black text-white">${dev.name}</div>
+                <div class="text-[10px] text-emerald-400 font-semibold">${dev.os}</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] font-bold text-emerald-400 flex items-center justify-end space-x-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>En línea</span>
+              </div>
+              <div class="text-[10px] text-slate-300 font-semibold">Batería: ${dev.batteryLevel}%</div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Tab 2: Time Supervision
+    function renderTimeTab() {
+      const child = getActiveChild();
+      const slider = document.getElementById('dailyLimitSlider');
+      slider.value = child.dailyLimitMinutes;
+      updateDailyLimitPreview(child.dailyLimitMinutes);
+
+      document.getElementById('schoolModeToggle').checked = !!child.schoolTimeActive;
+
+      // Week schedule cards
+      const container = document.getElementById('weekScheduleCards');
+      container.innerHTML = (appData.schedules || []).map(sch => `
+        <div class="p-3 rounded-xl bg-slate-800/50 border border-slate-700/60 text-center">
+          <div class="text-xs font-bold text-slate-300">${sch.day}</div>
+          <div class="text-lg font-display font-black text-[#FFB800] my-1">${sch.allowedHours}h</div>
+          <div class="text-[10px] text-slate-400">${sch.timeSlots[0]?.start} - ${sch.timeSlots[0]?.end}</div>
+        </div>
+      `).join('');
+    }
+
+    function updateDailyLimitPreview(val) {
+      const h = Math.floor(val / 60);
+      const m = val % 60;
+      document.getElementById('dailyLimitBadge').innerText = `${h}h ${m > 0 ? m + 'm' : '00m'}`;
+    }
+
+    async function saveDailyLimit() {
+      const child = getActiveChild();
+      const val = document.getElementById('dailyLimitSlider').value;
+      try {
+        const res = await fetch('/api/time/limit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: child.id, dailyLimitMinutes: Number(val) })
+        });
+        if (res.ok) {
+          child.dailyLimitMinutes = Number(val);
+          renderAll();
+          showToast(`Nuevo límite guardado: ${document.getElementById('dailyLimitBadge').innerText}`, 'success');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function toggleSchoolMode(checked) {
+      const child = getActiveChild();
+      try {
+        const res = await fetch('/api/time/school', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: child.id, active: checked })
+        });
+        if (res.ok) {
+          child.schoolTimeActive = checked;
+          showToast(checked ? 'Horario escolar activado (08:00 - 14:00)' : 'Horario escolar desactivado', 'info');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Tab 3: Web Filter
+    function renderWebTab() {
+      const child = getActiveChild();
+      document.getElementById('safeSearchToggle').checked = !!child.safeSearchEnabled;
+
+      // Categories Grid
+      const container = document.getElementById('webCategoriesGrid');
+      container.innerHTML = appData.webCategories.map(cat => {
+        let actionColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        let actionText = 'Permitido';
+        if (cat.action === 'blocked') {
+          actionColor = 'bg-red-500/10 text-red-400 border-red-500/30';
+          actionText = 'Bloqueado';
+        } else if (cat.action === 'warning') {
+          actionColor = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+          actionText = 'Advertencia';
+        }
+
+        return `
+          <div class="p-4 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-2xl">${cat.icon}</span>
+                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${actionColor}">
+                  ${actionText}
+                </span>
+              </div>
+              <h4 class="font-bold text-sm text-white">${cat.name}</h4>
+              <p class="text-xs text-slate-400 mt-1">${cat.description}</p>
+            </div>
+
+            <!-- Action Select -->
+            <div class="mt-4 pt-3 border-t border-[#283548] flex items-center justify-between">
+              <span class="text-[11px] text-slate-400 font-medium">Regla:</span>
+              <select onchange="updateWebCategory('${cat.id}', this.value)" class="px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#FFB800]">
+                <option value="blocked" ${cat.action === 'blocked' ? 'selected' : ''}>Bloquear</option>
+                <option value="warning" ${cat.action === 'warning' ? 'selected' : ''}>Advertir</option>
+                <option value="allowed" ${cat.action === 'allowed' ? 'selected' : ''}>Permitir</option>
+              </select>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Custom Rules Table
+      const tbody = document.getElementById('customRulesTableBody');
+      tbody.innerHTML = (appData.customWebRules || []).map(r => {
+        let badge = 'text-emerald-400';
+        if (r.action === 'blocked') badge = 'text-red-400 font-bold';
+        if (r.action === 'warning') badge = 'text-amber-400 font-bold';
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-2.5 px-3 font-mono text-slate-200">${r.domain}</td>
+            <td class="py-2.5 px-3 capitalize ${badge}">${r.action}</td>
+            <td class="py-2.5 px-3 text-slate-400">${r.note || '-'}</td>
+            <td class="py-2.5 px-3 text-right">
+              <button onclick="deleteCustomRule('${r.id}')" class="text-slate-400 hover:text-red-400 text-xs transition">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function toggleSafeSearch(checked) {
+      const child = getActiveChild();
+      try {
+        const res = await fetch('/api/web/safesearch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: child.id, enabled: checked })
+        });
+        if (res.ok) {
+          child.safeSearchEnabled = checked;
+          showToast(checked ? 'Búsqueda Segura activada' : 'Búsqueda Segura desactivada', 'info');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function updateWebCategory(categoryId, action) {
+      try {
+        const res = await fetch('/api/web/category', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryId, action })
+        });
+        if (res.ok) {
+          const cat = appData.webCategories.find(c => c.id === categoryId);
+          if (cat) cat.action = action;
+          renderWebTab();
+          renderOverviewTab();
+          showToast(`Regla actualizada: ${cat.name} -> ${action}`, 'success');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function addCustomRule() {
+      const domain = document.getElementById('newRuleDomain').value;
+      const policy = document.getElementById('newRulePolicy').value;
+      if (!domain) return showToast('Escribe un dominio válido', 'danger');
+
+      try {
+        const res = await fetch('/api/web/rule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain, policy })
+        });
+        const data = await res.json();
+        if (data.success) {
+          appData.customWebRules = data.customWebRules;
+          document.getElementById('newRuleDomain').value = '';
+          renderWebTab();
+          showToast(`Regla añadida para ${domain}`, 'success');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function deleteCustomRule(id) {
+      try {
+        const res = await fetch('/api/web/rule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', id })
+        });
+        const data = await res.json();
+        if (data.success) {
+          appData.customWebRules = data.customWebRules;
+          renderWebTab();
+          showToast('Regla eliminada', 'info');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Tab 4: App Supervision
+    function renderAppsTab() {
+      const grid = document.getElementById('appsListGrid');
+      document.getElementById('totalAppsCount').innerText = appData.monitoredApps.length;
+
+      grid.innerHTML = appData.monitoredApps.map(app => {
+        let statusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        let statusText = 'Permitida';
+        if (app.action === 'blocked') {
+          statusBadge = 'bg-red-500/10 text-red-400 border-red-500/30';
+          statusText = 'Bloqueada';
+        } else if (app.action === 'limited') {
+          statusBadge = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+          statusText = `Límite: ${app.dailyLimitMinutes} min`;
+        }
+
+        return `
+          <div class="p-4 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl ${app.iconColor} flex items-center justify-center font-bold text-sm shadow">
+                    ${app.name.substring(0, 2)}
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-white text-sm">${app.name}</h4>
+                    <span class="text-[10px] text-slate-400">${app.category}</span>
+                  </div>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${statusBadge}">${statusText}</span>
+              </div>
+
+              <!-- Usage bar -->
+              <div class="mt-2">
+                <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+                  <span>Uso hoy</span>
+                  <span class="text-white font-semibold">${app.usedMinutesToday} min</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div class="bg-[#FFB800] h-full rounded-full" style="width: ${Math.min(100, (app.usedMinutesToday / 45) * 100)}%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="mt-4 pt-3 border-t border-[#283548] flex items-center justify-between text-xs">
+              <span class="text-slate-400">Estado:</span>
+              <div class="flex items-center space-x-1.5">
+                <button onclick="updateAppPolicy('${app.id}', 'allowed')" class="px-2 py-1 rounded text-[11px] font-bold ${app.action === 'allowed' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}">Permitir</button>
+                <button onclick="updateAppPolicy('${app.id}', 'limited', 30)" class="px-2 py-1 rounded text-[11px] font-bold ${app.action === 'limited' ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400'}">Limitar</button>
+                <button onclick="updateAppPolicy('${app.id}', 'blocked')" class="px-2 py-1 rounded text-[11px] font-bold ${app.action === 'blocked' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400'}">Bloquear</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function updateAppPolicy(appId, action, limit = 30) {
+      try {
+        const res = await fetch('/api/apps/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appId, action, dailyLimitMinutes: limit })
+        });
+        if (res.ok) {
+          const app = appData.monitoredApps.find(a => a.id === appId);
+          if (app) {
+            app.action = action;
+            if (limit) app.dailyLimitMinutes = limit;
+          }
+          renderAppsTab();
+          renderSimulatorView();
+          showToast(`Aplicación ${app.name} configurada como: ${action}`, 'success');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Tab 5: Location & Geofences (REAL OpenStreetMap)
+    let osmMap = null;
+    let childMarker = null;
+    let mapCircles = [];
+
+    function initOrUpdateOsmMap() {
+      const child = getActiveChild();
+      const lat = child.currentLocation?.lat || 40.4168;
+      const lng = child.currentLocation?.lng || -3.7038;
+
+      const mapContainer = document.getElementById('realOsmMap');
+      if (!mapContainer) return;
+
+      if (!osmMap) {
+        osmMap = L.map('realOsmMap').setView([lat, lng], 15);
+
+        // Standard OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> | Norton Family'
+        }).addTo(osmMap);
+      }
+
+      // Remove existing circles
+      mapCircles.forEach(c => osmMap.removeLayer(c));
+      mapCircles = [];
+
+      // Add Geofence circles to map
+      (appData.geofences || []).forEach(g => {
+        let color = '#10B981'; // Emerald
+        if (g.type === 'home') color = '#FFB800'; // Norton Gold
+        if (g.type === 'family') color = '#6366F1'; // Indigo
+
+        const circle = L.circle([g.lat, g.lng], {
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.15,
+          radius: g.radiusMeters || 150
+        }).addTo(osmMap);
+
+        circle.bindPopup(`<b>${g.name}</b><br>${g.address}<br>Radio de zona: ${g.radiusMeters}m`);
+        mapCircles.push(circle);
+      });
+
+      // Custom pulsing Norton child marker
+      const childIcon = L.divIcon({
+        className: 'custom-child-pin',
+        html: `
+          <div style="display:flex; flex-direction:column; align-items:center; transform:translate(-50%, -100%);">
+            <div style="background:#0F172A; color:#FFFFFF; border:2px solid #FFB800; border-radius:12px; padding:3px 8px; font-size:11px; font-weight:800; box-shadow:0 4px 12px rgba(0,0,0,0.5); white-space:nowrap; margin-bottom:4px; display:flex; align-items:center; gap:4px;">
+              <span>${child.avatar || '👦'}</span>
+              <span>${child.name}</span>
+              <span style="color:#10B981; font-size:10px;">● GPS</span>
+            </div>
+            <div style="width:28px; height:28px; border-radius:50%; background:#FFB800; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 4px rgba(255,184,0,0.3); border:2px solid #000000; font-weight:900; color:#000;">
+              📍
+            </div>
+          </div>
+        `,
+        iconSize: [30, 42],
+        iconAnchor: [15, 42]
+      });
+
+      if (!childMarker) {
+        childMarker = L.marker([lat, lng], { icon: childIcon }).addTo(osmMap);
+      } else {
+        childMarker.setLatLng([lat, lng]);
+        childMarker.setIcon(childIcon);
+      }
+
+      childMarker.bindPopup(`
+        <div style="font-family:sans-serif; font-size:12px;">
+          <b>${child.name}</b><br>
+          Batería: ${child.devices?.[0]?.batteryLevel || 85}%<br>
+          Último reporte: ${child.currentLocation?.updatedAt || 'Reciente'}<br>
+          <i>Coordenadas: ${lat.toFixed(5)}, ${lng.toFixed(5)}</i>
+        </div>
+      `);
+    }
+
+    function recenterMapOnChild() {
+      const child = getActiveChild();
+      const lat = child.currentLocation?.lat || 40.4168;
+      const lng = child.currentLocation?.lng || -3.7038;
+      if (osmMap) {
+        osmMap.setView([lat, lng], 16, { animate: true });
+        if (childMarker) childMarker.openPopup();
+      }
+    }
+
+    function renderLocationTab() {
+      const child = getActiveChild();
+      const lat = child.currentLocation?.lat || 40.4168;
+      const lng = child.currentLocation?.lng || -3.7038;
+
+      const locText = document.getElementById('mapCurrentLocationText');
+      if (locText) locText.innerText = child.currentLocation?.address || 'Ubicación GPS en vivo';
+
+      const coordsText = document.getElementById('mapCoordsText');
+      if (coordsText) coordsText.innerText = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+
+      const lastUpd = document.getElementById('mapLastUpdate');
+      if (lastUpd) lastUpd.innerText = `Reporte: ${child.currentLocation?.updatedAt || 'Ahora'}`;
+
+      const container = document.getElementById('geofencesList');
+      if (container) {
+        container.innerHTML = (appData.geofences || []).map(g => `
+          <div class="p-3.5 rounded-xl bg-slate-800/40 border border-[#283548] flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="text-xl">${g.type === 'home' ? '🏠' : g.type === 'school' ? '🏫' : '👨‍👩‍👧'}</span>
+              <div>
+                <div class="text-xs font-bold text-white">${g.name}</div>
+                <div class="text-[10px] text-slate-400">${g.address} (Radio ${g.radiusMeters}m)</div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1">
+              <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded">En mapa</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Initialize or invalidate size for Leaflet
+      setTimeout(() => {
+        initOrUpdateOsmMap();
+        if (osmMap) osmMap.invalidateSize();
+      }, 100);
+    }
+
+    function simulateCheckIn() {
+      const child = getActiveChild();
+      showToast(`¡Check-in recibido! ${child.name} ha reportado su llegada segura a Casa.`, 'success');
+    }
+
+    // Tab 6: Requests & Alerts
+    function renderRequestsTab() {
+      const container = document.getElementById('allRequestsGrid');
+      const pending = appData.requests.filter(r => r.status === 'pending');
+
+      document.getElementById('requestsBadge').innerText = pending.length;
+      if (pending.length > 0) {
+        document.getElementById('requestsBadge').classList.remove('hidden');
+      } else {
+        document.getElementById('requestsBadge').classList.add('hidden');
+      }
+
+      if (appData.requests.length === 0) {
+        container.innerHTML = `<p class="col-span-2 text-center text-slate-500 py-10">No hay solicitudes registradas.</p>`;
+        return;
+      }
+
+      container.innerHTML = appData.requests.map(r => {
+        let statusBadge = 'bg-amber-500/20 text-[#FFB800] border-amber-500/30';
+        let statusLabel = 'Pendiente de Respuesta';
+        if (r.status === 'approved') {
+          statusBadge = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+          statusLabel = 'Aprobada';
+        } else if (r.status === 'rejected') {
+          statusBadge = 'bg-red-500/20 text-red-400 border-red-500/30';
+          statusLabel = 'Rechazada';
+        }
+
+        return `
+          <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                  <i data-lucide="${r.type === 'extra_time' ? 'clock' : 'globe'}" class="w-4 h-4 text-[#FFB800]"></i>
+                  <span>${r.type === 'extra_time' ? 'Petición de Tiempo de Pantalla' : 'Desbloqueo de Sitio Web'}</span>
+                </span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${statusBadge}">${statusLabel}</span>
+              </div>
+              
+              <div class="text-sm font-bold text-white mt-1">Hijo: ${r.childName}</div>
+              <div class="text-xs font-medium text-amber-300 mt-0.5">Objetivo: ${r.target}</div>
+              
+              <div class="mt-3 p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs text-slate-200 italic">
+                "${r.message}"
+              </div>
+              <span class="text-[10px] text-slate-500 block mt-2">${r.timestamp}</span>
+            </div>
+
+            ${r.status === 'pending' ? `
+              <div class="pt-3 border-t border-[#283548] flex items-center justify-end space-x-2">
+                <button onclick="respondRequest('${r.id}', 'rejected')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+                  Rechazar
+                </button>
+                <button onclick="respondRequest('${r.id}', 'approved')" class="px-4 py-2 rounded-xl bg-[#FFB800] hover:bg-[#E5A600] text-black text-xs font-extrabold shadow-md transition">
+                  Aprobar
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function respondRequest(requestId, decision) {
+      try {
+        const res = await fetch('/api/requests/respond', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId, decision })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadData();
+          showToast(`Solicitud ${decision === 'approved' ? 'aprobada' : 'rechazada'} exitosamente`, decision === 'approved' ? 'success' : 'info');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Tab 7: Simulator View
+    function renderSimulatorView() {
+      const child = getActiveChild();
+      document.getElementById('simChildName').innerText = child.name;
+
+      const isLocked = child.instantLockActive || (child.usedTodayMinutes >= child.dailyLimitMinutes);
+      const unlockedView = document.getElementById('simUnlockedView');
+      const lockedView = document.getElementById('simLockedView');
+      const webBlockedView = document.getElementById('simWebBlockedView');
+
+      if (isLocked) {
+        unlockedView.classList.add('hidden');
+        lockedView.classList.remove('hidden');
+        webBlockedView.classList.add('hidden');
+        
+        if (child.instantLockActive) {
+          document.getElementById('simLockedReasonText').innerText = 'Pausa Instantánea Activa. Tus padres han bloqueado este teléfono inmediatamente.';
+        } else {
+          document.getElementById('simLockedReasonText').innerText = `Has alcanzado tu límite diario de tiempo de pantalla (${Math.floor(child.dailyLimitMinutes / 60)}h). El teléfono se ha pausado hasta mañana.`;
+        }
+      } else {
+        unlockedView.classList.remove('hidden');
+        lockedView.classList.add('hidden');
+        // Do not force close webBlockedView if user is inspecting it
+      }
+
+      // Display remaining time on child simulator
+      const rem = Math.max(0, child.dailyLimitMinutes - child.usedTodayMinutes);
+      document.getElementById('simRemainingTimeDisplay').innerText = `${rem} min`;
+
+      // Render app icons
+      const iconsContainer = document.getElementById('simAppIconsGrid');
+      iconsContainer.innerHTML = appData.monitoredApps.slice(0, 8).map(app => `
+        <button onclick="simulateOpenApp('${app.id}')" class="flex flex-col items-center space-y-1 p-1 hover:bg-slate-900 rounded-xl transition">
+          <div class="w-12 h-12 rounded-2xl ${app.iconColor} flex items-center justify-center font-bold text-sm shadow-md relative">
+            ${app.name.substring(0, 2)}
+            ${app.action === 'blocked' ? '<span class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-[9px] flex items-center justify-center text-white">🔒</span>' : ''}
+          </div>
+          <span class="text-[10px] text-slate-300 truncate max-w-[60px]">${app.name}</span>
+        </button>
+      `).join('');
+    }
+
+    async function simulateBrowseUrl() {
+      const url = document.getElementById('simBrowseUrlInput').value.trim();
+      if (!url) return;
+
+      const resBox = document.getElementById('simBrowseResultBox');
+      resBox.classList.remove('hidden');
+      resBox.innerHTML = `<span class="text-slate-400">Consultando motor de filtrado Norton...</span>`;
+
+      try {
+        const res = await fetch('/api/child/browse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: getActiveChild().id, url })
+        });
+        const data = await res.json();
+
+        if (!data.allowed) {
+          // Open web blocked view on the child phone!
+          document.getElementById('simUnlockedView').classList.add('hidden');
+          document.getElementById('simLockedView').classList.add('hidden');
+          document.getElementById('simWebBlockedView').classList.remove('hidden');
+
+          document.getElementById('simBlockedUrlLabel').innerText = url;
+          document.getElementById('simBlockedCategoryReason').innerText = data.message;
+
+          resBox.innerHTML = `
+            <div class="text-red-400 font-bold flex items-center space-x-2">
+              <i data-lucide="shield-alert" class="w-4 h-4"></i>
+              <span>ACCESO DENEGADO POR NORTON</span>
+            </div>
+            <p class="text-slate-300 mt-1">${data.message}</p>
+          `;
+        } else {
+          document.getElementById('simWebBlockedView').classList.add('hidden');
+          document.getElementById('simUnlockedView').classList.remove('hidden');
+
+          resBox.innerHTML = `
+            <div class="text-emerald-400 font-bold flex items-center space-x-2">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <span>SITIO WEB VERIFICADO Y PERMITIDO</span>
+            </div>
+            <p class="text-slate-300 mt-1">${data.message} ${data.warning ? '⚠️ (Se registró advertencia de uso responsable)' : ''}</p>
+          `;
+        }
+
+        if (window.lucide) lucide.createIcons();
+        await loadData(); // refresh activity logs in background
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function setSimUrl(url) {
+      document.getElementById('simBrowseUrlInput').value = url;
+      simulateBrowseUrl();
+    }
+
+    function closeWebBlockedView() {
+      document.getElementById('simWebBlockedView').classList.add('hidden');
+      document.getElementById('simUnlockedView').classList.remove('hidden');
+    }
+
+    function simulateOpenApp(appId) {
+      const app = appData.monitoredApps.find(a => a.id === appId);
+      if (!app) return;
+
+      const child = getActiveChild();
+      if (child.instantLockActive) {
+        return showToast('El teléfono está en Pausa Instantánea. No se puede abrir ninguna app.', 'danger');
+      }
+
+      if (app.action === 'blocked') {
+        showToast(`🔒 "${app.name}" está bloqueada por tus padres.`, 'danger');
+      } else if (app.action === 'limited' && app.usedMinutesToday >= app.dailyLimitMinutes) {
+        showToast(`⏳ Límite diario alcanzado para "${app.name}" (${app.dailyLimitMinutes} min).`, 'danger');
+      } else {
+        showToast(`Abriendo "${app.name}" en el dispositivo del niño...`, 'success');
+      }
+    }
+
+    async function triggerChildSOS() {
+      const child = getActiveChild();
+      try {
+        const res = await fetch('/api/child/sos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: child.id })
+        });
+        if (res.ok) {
+          showToast(`🚨 ¡ALERTA SOS ENVIADA! Tus padres han recibido tu alerta y ubicación inmediata.`, 'danger');
+          await loadData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Modal Requests
+    function openRequestModal(type) {
+      const modal = document.getElementById('requestModal');
+      const targetTimeField = document.getElementById('modalTargetField');
+      const targetUrlField = document.getElementById('modalCustomTargetField');
+      const title = document.getElementById('modalRequestTitle');
+
+      document.getElementById('modalRequestType').value = type;
+
+      if (type === 'extra_time') {
+        title.innerText = 'Pedir más tiempo de pantalla';
+        targetTimeField.classList.remove('hidden');
+        targetUrlField.classList.add('hidden');
+        document.getElementById('modalRequestMessage').value = 'Papá, necesito terminar una maqueta para el colegio.';
+      } else {
+        title.innerText = 'Pedir permiso para visitar sitio web';
+        targetTimeField.classList.add('hidden');
+        targetUrlField.classList.remove('hidden');
+        document.getElementById('modalRequestedUrl').value = document.getElementById('simBrowseUrlInput')?.value || '';
+        document.getElementById('modalRequestMessage').value = 'El profesor nos solicitó entrar a este sitio web.';
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeRequestModal() {
+      document.getElementById('requestModal').classList.add('hidden');
+    }
+
+    async function submitChildRequest() {
+      const type = document.getElementById('modalRequestType').value;
+      const child = getActiveChild();
+      const message = document.getElementById('modalRequestMessage').value;
+      let target = '';
+      let requestedMinutes = 30;
+
+      if (type === 'extra_time') {
+        requestedMinutes = Number(document.getElementById('modalRequestedMinutes').value);
+        target = `Tiempo de Pantalla (+${requestedMinutes} min)`;
+      } else {
+        target = document.getElementById('modalRequestedUrl').value || 'Sitio Web';
+      }
+
+      try {
+        const res = await fetch('/api/child/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            childId: child.id,
+            type,
+            target,
+            requestedMinutes,
+            message
+          })
+        });
+        if (res.ok) {
+          closeRequestModal();
+          showToast('Petición enviada a tus padres. Te avisaremos en cuanto respondan.', 'info');
+          await loadData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Tabs switching
+    function switchTab(tabId) {
+      activeTab = tabId;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-[#FFB800]', 'text-black', 'font-black');
+        btn.classList.add('text-slate-300', 'hover:bg-slate-800');
+      });
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+      const activeBtn = document.getElementById(`tab-${tabId}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-300', 'hover:bg-slate-800');
+        activeBtn.classList.add('bg-[#FFB800]', 'text-black', 'font-black');
+      }
+
+      const activeContent = document.getElementById(`content-${tabId}`);
+      if (activeContent) {
+        activeContent.classList.remove('hidden');
+      }
+
+      if (tabId === 'location') {
+        renderLocationTab();
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Toast Notifications
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      let border = 'border-slate-700 bg-slate-900 text-slate-100';
+      if (type === 'success') border = 'border-emerald-500 bg-emerald-950 text-emerald-100 shadow-emerald-500/10';
+      if (type === 'danger') border = 'border-red-500 bg-red-950 text-red-100 shadow-red-500/10';
+      if (type === 'info') border = 'border-amber-500 bg-slate-900 text-amber-100 shadow-amber-500/10';
+
+      toast.className = `p-4 rounded-xl border text-xs font-semibold shadow-2xl flex items-center space-x-3 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${border}`;
+      toast.innerHTML = `<span>🛡️</span><span>${message}</span>`;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // QR Modal
+    function openQrModal() {
+      const url = appData.serverNetwork?.mobileChildUrl || `http://${window.location.hostname}:3080/child`;
+      document.getElementById('qrDirectUrlText').innerText = url;
+      document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+      document.getElementById('qrModal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeQrModal() {
+      document.getElementById('qrModal').classList.add('hidden');
+    }
+
+    // Initialize clock in phone notch
+    setInterval(() => {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const clockElem = document.getElementById('simPhoneClock');
+      if (clockElem) clockElem.innerText = timeStr;
+    }, 1000);
+
+    // Auto-refresh data every 2.5s for real-time parent sync
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/data');
+        if (res.ok) {
+          const newData = await res.json();
+          // Detect if a new pending request arrived
+          const oldPending = appData.requests?.filter(r => r.status === 'pending').length || 0;
+          const newPending = newData.requests?.filter(r => r.status === 'pending').length || 0;
+          if (newPending > oldPending) {
+            showToast('🔔 ¡Nueva solicitud recibida de tu hijo desde su celular!', 'info');
+          }
+          appData = newData;
+          renderAll();
+        }
+      } catch (e) {}
+    }, 2500);
+
+    // Initial Load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      switchTab('overview');
+    });
+  </script>
+</body>
+</html>

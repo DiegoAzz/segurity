@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0F172A"
+    android:gravity="center"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🔒"
+        android:textSize="70sp"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Dispositivo Pausado"
+        android:textColor="#FFFFFF"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tus padres han activado la Pausa Instantánea de Norton Family.\nEl acceso a YouTube, juegos y aplicaciones está suspendido temporalmente."
+        android:textColor="#CBD5E1"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:layout_marginBottom="32dp" />
+
+    <Button
+        android:id="@+id/btn_overlay_ask"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pedir más tiempo a mis padres"
+        android:backgroundTint="#FFB800"
+        android:textColor="#000000"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btn_overlay_call"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Llamar a Papá / Mamá"
+        android:backgroundTint="#1E293B"
+        android:textColor="#E2E8F0" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Protegido por Norton Family Premier"
+        android:textColor="#64748B"
+        android:textSize="11sp"
+        android:layout_marginTop="40dp" />
+
+</LinearLayout>

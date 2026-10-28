@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+android-app/build
+android-app/.gradle
+mobile/node_modules
+mobile/.expo
+.DS_Store
+Thumbs.db
