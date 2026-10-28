@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel de Alquiler y Clientes | Norton Family SaaS</title>
+  <title>Panel de Alquiler y Clientes | AppzSegurity SaaS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,7 +27,7 @@
         </div>
         <div>
           <div class="flex items-center space-x-2">
-            <span class="font-display font-black text-lg text-white">Norton <span class="text-[#FFB800]">SaaS Admin</span></span>
+            <span class="font-display font-black text-lg text-white">Appz<span class="text-[#FFB800]">Segurity Admin</span></span>
             <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-500/10 text-[#FFB800] border border-amber-500/20">
               Modo Alquiler
             </span>
@@ -414,7 +414,7 @@
 
           // Mostrar mensaje de WhatsApp
           const client = data.client;
-          const msg = `🛡️ *Norton Family - Control Parental*\n\nHola ${client.name}, tu servicio ha sido activado con éxito.\n\n🌐 *Tu enlace de acceso para padres:* https://segurity.appzplay.online/login\n📧 *Usuario:* ${client.email}\n🔑 *Contraseña:* ${client.password}\n\n📱 *Para vincular el celular de tu hijo:*\n1. Descarga la aplicación aquí: https://segurity.appzplay.online/norton-companion.apk\n2. Al abrir la app, escribe tu Código de Familia: *${client.pairingCode}*\n\n¡Listo! El teléfono de tu hijo quedará protegido de inmediato.`;
+          const msg = `🛡️ *AppzSegurity - Control Parental*\n\nHola ${client.name}, tu servicio ha sido activado con éxito.\n\n🌐 *Tu enlace de acceso para padres:* https://segurity.appzplay.online/login\n📧 *Usuario:* ${client.email}\n🔑 *Contraseña:* ${client.password}\n\n📱 *Para vincular el celular de tu hijo:*\n1. Descarga la aplicación aquí: https://segurity.appzplay.online/norton-companion.apk\n2. Al abrir la app, escribe tu Código de Familia: *${client.pairingCode}*\n\n¡Listo! El teléfono de tu hijo quedará protegido de inmediato.`;
 
           document.getElementById('shareMessageText').innerText = msg;
           const cleanPhone = (client.phone || '').replace(/[^0-9]/g, '');

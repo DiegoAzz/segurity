@@ -1324,7 +1324,7 @@ const server = http.createServer(async (req, res) => {
 
     const headers = { 'Content-Type': contentType };
     if (ext === '.apk') {
-      headers['Content-Disposition'] = 'attachment; filename="norton-companion.apk"';
+      headers['Content-Disposition'] = 'attachment; filename="appzsegurity.apk"';
     }
     fs.readFile(filePath, (readErr, content) => {
       if (readErr) {
@@ -1339,7 +1339,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n======================================================`);
-  console.log(`🛡️  NORTON FAMILY SAAS - CONTROL PARENTAL Y ALQUILER`);
+  console.log(`🛡️  APPZSEGURITY SAAS - CONTROL PARENTAL Y ALQUILER`);
   console.log(`======================================================`);
   console.log(`👑 Panel Super Admin:       http://localhost:${PORT}/admin`);
   console.log(`🔑 Iniciar Sesión Padres:   http://localhost:${PORT}/login`);

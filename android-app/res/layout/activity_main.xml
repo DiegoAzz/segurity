@@ -23,7 +23,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Norton Companion"
+            android:text="AppzSegurity"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF" />
@@ -178,6 +178,25 @@
             android:text="Configurar Inicio Automático"
             android:backgroundTint="#1E293B"
             android:textColor="#93C5FD"
+            android:textSize="12sp"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="5. Protección contra Eliminación (Admin de Dispositivo):"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"
+            android:layout_marginBottom="4dp" />
+
+        <Button
+            android:id="@+id/btn_device_admin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Bloquear Desinstalación de la App"
+            android:backgroundTint="#334155"
+            android:textColor="#F8FAFC"
+            android:textStyle="bold"
             android:textSize="12sp"
             android:layout_marginBottom="14dp" />
 

@@ -163,7 +163,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Protegido por Norton Family Premier"
+            android:text="Protegido por AppzSegurity Control Parental"
             android:textColor="#64748B"
             android:textSize="10sp"
             android:layout_marginTop="16dp" />

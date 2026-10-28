@@ -72,7 +72,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         }
 
         Notification notification = builder
-                .setContentTitle("Norton Companion Activo")
+                .setContentTitle("AppzSegurity Activo")
                 .setContentText("Supervisión y control parental en ejecución")
                 .setSmallIcon(android.R.drawable.ic_lock_lock)
                 .build();
@@ -573,7 +573,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Norton Supervision",
+                    "AppzSegurity Supervisión",
                     NotificationManager.IMPORTANCE_LOW
             );
             channel.setDescription("Servicio de protección familiar continua");

