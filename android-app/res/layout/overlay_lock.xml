@@ -8,6 +8,7 @@
     android:padding="24dp">
 
     <TextView
+        android:id="@+id/tv_overlay_icon"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="🔒"
@@ -15,18 +16,21 @@
         android:layout_marginBottom="16dp" />
 
     <TextView
+        android:id="@+id/tv_overlay_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Dispositivo Pausado"
         android:textColor="#FFFFFF"
-        android:textSize="26sp"
+        android:textSize="24sp"
         android:textStyle="bold"
+        android:gravity="center"
         android:layout_marginBottom="10dp" />
 
     <TextView
+        android:id="@+id/tv_overlay_desc"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Tus padres han activado la Pausa Instantánea de Norton Family.\nEl acceso a YouTube, juegos y aplicaciones está suspendido temporalmente."
+        android:text="Tus padres han activado el Control Parental de Norton Family.\nEl acceso a este contenido está restringido temporalmente."
         android:textColor="#CBD5E1"
         android:textSize="14sp"
         android:gravity="center"
@@ -37,17 +41,17 @@
         android:id="@+id/btn_overlay_ask"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Pedir más tiempo a mis padres"
+        android:text="Pedir autorización a mis padres"
         android:backgroundTint="#FFB800"
         android:textColor="#000000"
         android:textStyle="bold"
         android:layout_marginBottom="12dp" />
 
     <Button
-        android:id="@+id/btn_overlay_call"
+        android:id="@+id/btn_emergency_call"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Llamar a Papá / Mamá"
+        android:text="Llamada de Emergencia / Padres"
         android:backgroundTint="#1E293B"
         android:textColor="#E2E8F0" />
 

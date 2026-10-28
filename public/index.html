@@ -556,6 +556,9 @@
               <button onclick="autoDetectRealLocation()" class="px-2.5 py-1 bg-[#FFB800] hover:bg-[#E5A600] text-black rounded-lg font-black transition flex items-center space-x-1 shadow">
                 <span>🎯 Mi Ubicación Real</span>
               </button>
+              <button onclick="searchCityLocation()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 font-bold transition">
+                🔍 Buscar Ciudad
+              </button>
               <button onclick="recenterMapOnChild()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[#FFB800] rounded-lg border border-slate-700 font-bold transition">
                 Centrar en Niño
               </button>
@@ -1554,71 +1557,130 @@
 
     // Auto-detect real location and reverse-geocode address
     async function autoDetectRealLocation() {
-      if (!('geolocation' in navigator)) {
-        showToast('La geolocalización no está soportada en este navegador.', 'danger');
-        return;
+      showToast('Obteniendo tu posición real...', 'info');
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            await applyLocation(pos.coords.latitude, pos.coords.longitude, 'GPS Navegador');
+          },
+          async (err) => {
+            console.log('GPS de navegador no disponible o lento, usando detección automática por red/IP...');
+            await detectIpLocation();
+          },
+          { enableHighAccuracy: false, timeout: 4000 }
+        );
+      } else {
+        await detectIpLocation();
       }
+    }
 
-      showToast('Obteniendo tu posición GPS real...', 'info');
-
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        const realLat = pos.coords.latitude;
-        const realLng = pos.coords.longitude;
-        let realAddress = `GPS: ${realLat.toFixed(5)}, ${realLng.toFixed(5)}`;
-
-        try {
-          // Reverse geocoding con OpenStreetMap Nominatim
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${realLat}&lon=${realLng}`);
-          if (geoRes.ok) {
-            const geoData = await geoRes.json();
-            if (geoData.display_name) {
-              realAddress = geoData.display_name.split(',').slice(0, 3).join(',');
-            }
+    async function detectIpLocation() {
+      try {
+        let lat = null, lng = null, address = '';
+        const res = await fetch('/api/ip-location');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.lat && data.lng) {
+            lat = data.lat;
+            lng = data.lng;
+            address = data.address || `${data.city || ''}, ${data.country || ''}`;
           }
-        } catch (e) {}
-
-        // Enviar al servidor para actualizar la base de datos
-        try {
-          const child = getActiveChild();
-          const res = await fetch('/api/child/telemetry', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              childId: child.id,
-              lat: realLat,
-              lng: realLng,
-              address: realAddress,
-              batteryLevel: child.devices?.[0]?.batteryLevel || 90
-            })
-          });
-
-          if (res.ok) {
-            child.currentLocation = {
-              lat: realLat,
-              lng: realLng,
-              address: realAddress,
-              updatedAt: 'Ahora mismo (GPS Real)',
-              battery: child.devices?.[0]?.batteryLevel || 90,
-              zone: 'Ubicación Real'
-            };
-
-            // Ajustar también las geocercas para que rodeen la ubicación real del usuario
-            if (appData.geofences && appData.geofences.length > 0) {
-              appData.geofences[0].lat = realLat;
-              appData.geofences[0].lng = realLng;
-              appData.geofences[0].address = realAddress;
-            }
-
-            renderLocationTab();
-            recenterMapOnChild();
-            showToast(`Ubicación real fijada: ${realAddress}`, 'success');
-          }
-        } catch (e) {
-          console.error(e);
         }
-      }, (err) => {
-        showToast('Por favor permite el acceso a tu ubicación en el navegador.', 'danger');
-      }, { enableHighAccuracy: true, timeout: 10000 });
+        if (!lat) {
+          const res2 = await fetch('https://ipwho.is/');
+          if (res2.ok) {
+            const data2 = await res2.json();
+            if (data2.latitude && data2.longitude) {
+              lat = data2.latitude;
+              lng = data2.longitude;
+              address = `${data2.city || ''}, ${data2.country || ''}`;
+            }
+          }
+        }
+
+        if (lat && lng) {
+          await applyLocation(lat, lng, address || 'Ubicación por Red');
+        } else {
+          showToast('No se pudo detectar la posición automáticamente.', 'warning');
+        }
+      } catch (e) {
+        console.error('Error detectando IP:', e);
+      }
+    }
+
+    async function applyLocation(lat, lng, sourceLabel = 'Ubicación Real') {
+      let realAddress = sourceLabel;
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        if (geoRes.ok) {
+          const geoData = await geoRes.json();
+          if (geoData.display_name) {
+            realAddress = geoData.display_name.split(',').slice(0, 3).join(',');
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const child = getActiveChild();
+        const res = await fetch('/api/child/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            childId: child.id,
+            lat: lat,
+            lng: lng,
+            address: realAddress,
+            batteryLevel: child.devices?.[0]?.batteryLevel || 90
+          })
+        });
+
+        if (res.ok) {
+          child.currentLocation = {
+            lat: lat,
+            lng: lng,
+            address: realAddress,
+            updatedAt: 'Ahora mismo (' + sourceLabel + ')',
+            battery: child.devices?.[0]?.batteryLevel || 90,
+            zone: 'Ubicación Real'
+          };
+
+          if (appData.geofences && appData.geofences.length > 0) {
+            appData.geofences[0].lat = lat;
+            appData.geofences[0].lng = lng;
+            appData.geofences[0].address = realAddress;
+          }
+
+          renderLocationTab();
+          recenterMapOnChild();
+          showToast(`Ubicación actualizada: ${realAddress}`, 'success');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function searchCityLocation() {
+      const query = prompt('Escribe el nombre de tu ciudad o dirección (ej: Cartagena, Colombia):');
+      if (!query || !query.trim()) return;
+      try {
+        showToast(`Buscando "${query}"...`, 'info');
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const first = data[0];
+            const lat = parseFloat(first.lat);
+            const lng = parseFloat(first.lon);
+            const address = first.display_name.split(',').slice(0, 3).join(',');
+            await applyLocation(lat, lng, address);
+          } else {
+            showToast('No se encontró esa ciudad o dirección.', 'warning');
+          }
+        }
+      } catch (e) {
+        showToast('Error al buscar dirección.', 'danger');
+      }
     }
 
     // Tab 5: Location & Geofences (REAL OpenStreetMap)

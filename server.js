@@ -114,9 +114,26 @@ const server = http.createServer(async (req, res) => {
         .filter(a => a.action === 'blocked')
         .map(a => a.packageName);
 
+      const blockedDomains = (db.customWebRules || [])
+        .filter(r => r.action === 'blocked')
+        .map(r => r.domain.toLowerCase().trim());
+
+      const adultCategory = (db.webCategories || []).find(c => c.id === 'cat_adult');
+      const adultBlocked = adultCategory ? (adultCategory.action === 'blocked') : true;
+
+      const blockedKeywords = [];
+      (db.webCategories || []).forEach(cat => {
+        if (cat.action === 'blocked' && Array.isArray(cat.keywords)) {
+          blockedKeywords.push(...cat.keywords);
+        }
+      });
+
       return sendJson(res, 200, {
         ...db,
         blockedPackages,
+        blockedDomains,
+        blockedKeywords,
+        adultBlocked,
         serverNetwork: {
           localIp: LOCAL_IP,
           port: PORT,
@@ -180,7 +197,38 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 404, { error: 'Hijo no encontrado' });
     }
 
-    // 2b. Crear o editar hijo
+    // 2b. Detección automática de ubicación por IP pública
+    if (pathname === '/api/ip-location' && req.method === 'GET') {
+      try {
+        let clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        if (clientIp.includes(',')) clientIp = clientIp.split(',')[0].trim();
+        clientIp = clientIp.replace(/^::ffff:/, '');
+        
+        const isPrivate = !clientIp || clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.') || clientIp.startsWith('172.');
+        const ipQueryUrl = isPrivate ? 'https://ipwho.is/' : `https://ipwho.is/${clientIp}`;
+
+        const fetchRes = await fetch(ipQueryUrl, { signal: AbortSignal.timeout(4000) });
+        if (fetchRes.ok) {
+          const ipData = await fetchRes.json();
+          if (ipData.success && ipData.latitude && ipData.longitude) {
+            return sendJson(res, 200, {
+              success: true,
+              lat: ipData.latitude,
+              lng: ipData.longitude,
+              city: ipData.city || '',
+              region: ipData.region || '',
+              country: ipData.country || '',
+              address: `${ipData.city || ''}, ${ipData.region || ''}, ${ipData.country || ''}`.replace(/^, |, $/g, '')
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching ip-location:', e.message);
+      }
+      return sendJson(res, 200, { success: false, lat: 10.3982, lng: -75.4933, address: 'Cartagena, Colombia' });
+    }
+
+    // 2c. Crear o editar hijo
     if (pathname === '/api/children/create' && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const newChild = {
@@ -621,7 +669,31 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // 14b. Notificación y Auditoría de Reinicio de Dispositivo
+    // 14b. Notificación directa de bloqueo de sitio web o pornografía desde el agente nativo
+    if (pathname === '/api/child/web-block' && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const child = db.children.find(c => c.id === (body.childId || db.activeChildId)) || db.children[0];
+      const blockedItem = body.item || body.domain || body.url || 'Sitio restringido';
+      const reason = body.reason || 'Contenido para Adultos / Regla Bloqueada';
+      const nowStr = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+      const log = {
+        id: 'log_' + Date.now(),
+        childId: child ? child.id : 'child_1',
+        type: 'web',
+        title: `🚫 BLOQUEO WEB: ${blockedItem}`,
+        details: `Se interceptó y bloqueó un intento de acceso a "${blockedItem}" (${reason}) en el navegador del teléfono.`,
+        status: 'blocked',
+        timestamp: 'Hoy, ' + nowStr
+      };
+
+      db.activityLogs.unshift(log);
+      saveDatabase(db);
+      console.log(`[BLOQUEO WEB NATIVO] Interceptado: ${blockedItem} (${reason})`);
+      return sendJson(res, 200, { success: true, log });
+    }
+
+    // 14c. Notificación y Auditoría de Reinicio de Dispositivo
     if (pathname === '/api/child/reboot' && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const child = db.children.find(c => c.id === (body.childId || db.activeChildId)) || db.children[0];
