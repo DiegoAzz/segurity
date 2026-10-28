@@ -179,16 +179,36 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         @Override
         public void run() {
             try {
-                // Obtener nivel de batería
-                IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-                Intent batteryStatus = mService.registerReceiver(null, ifilter);
-                int batteryLevel = 85;
-                if (batteryStatus != null) {
-                    int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-                    int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                    if (level >= 0 && scale > 0) {
-                        batteryLevel = (int) ((level / (float) scale) * 100);
+                // Obtener nivel de batería real vía BatteryManager nativo
+                int batteryLevel = -1;
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        BatteryManager bm = (BatteryManager) mService.getSystemService(Context.BATTERY_SERVICE);
+                        if (bm != null) {
+                            int cap = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                            if (cap > 0 && cap <= 100) {
+                                batteryLevel = cap;
+                            }
+                        }
                     }
+                } catch (Exception ignored) {}
+
+                if (batteryLevel <= 0) {
+                    try {
+                        IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                        Intent batteryStatus = mService.registerReceiver(null, ifilter);
+                        if (batteryStatus != null) {
+                            int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                            int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                            if (level >= 0 && scale > 0) {
+                                batteryLevel = (int) ((level / (float) scale) * 100);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (batteryLevel <= 0) {
+                    batteryLevel = 85;
                 }
 
                 double lat = mService.mLastLat;
@@ -250,6 +270,11 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                         }
                     } catch (Exception ignored) {}
                 }
+
+                // Sincronizar también la lista de aplicaciones instaladas en segundo plano
+                try {
+                    new MainActivity.ScanAppsThread(mService.getPackageManager(), mService.mServerBaseUrl).start();
+                } catch (Exception ignored) {}
             } catch (Exception e) {}
         }
     }

@@ -22,15 +22,35 @@ const LOCAL_IP = getLocalIpAddress();
 
 // Cargar o inicializar base de datos
 function loadDatabase() {
+  let loaded = null;
   try {
     if (fs.existsSync(DB_PATH)) {
       const data = fs.readFileSync(DB_PATH, 'utf8');
-      return JSON.parse(data);
+      loaded = JSON.parse(data);
     }
   } catch (err) {
     console.error('Error al leer database.json:', err);
   }
-  return { activeChildId: 'child_1', children: [], webCategories: [], requests: [], activityLogs: [] };
+
+  if (!loaded) {
+    loaded = { activeChildId: 'child_1', children: [], webCategories: [], requests: [], activityLogs: [] };
+  }
+
+  // Auto-limpieza de dispositivos duplicados y logs obsoletos de localhost
+  if (Array.isArray(loaded.children)) {
+    loaded.children.forEach(c => {
+      if (Array.isArray(c.devices) && c.devices.length > 1) {
+        const active = c.devices.find(d => d.batteryLevel && d.batteryLevel !== 85) || c.devices[c.devices.length - 1];
+        c.devices = [active];
+      }
+    });
+  }
+
+  if (Array.isArray(loaded.activityLogs)) {
+    loaded.activityLogs = loaded.activityLogs.filter(log => log.id !== 'log_init');
+  }
+
+  return loaded;
 }
 
 function saveDatabase(db) {
@@ -154,27 +174,27 @@ const server = http.createServer(async (req, res) => {
       if (child) {
         if (!child.devices) child.devices = [];
 
-        // Registrar o actualizar dispositivo real
-        const devId = body.deviceId || 'real_device_1';
-        let dev = child.devices.find(d => d.id === devId);
+        // Mantener exactamente 1 smartphone actualizado por hijo
+        let dev = child.devices.find(d => d.type === 'smartphone');
         
         if (!dev) {
           dev = {
-            id: devId,
-            name: body.deviceName || 'Mi Celular Personal',
+            id: 'primary_phone',
+            name: body.deviceName || 'Smartphone Android',
             type: 'smartphone',
-            os: body.os || 'Dispositivo Móvil',
-            batteryLevel: body.batteryLevel ? Math.round(body.batteryLevel) : 85,
+            os: body.os || 'Android',
+            batteryLevel: (body.batteryLevel !== undefined && body.batteryLevel !== null) ? Math.round(body.batteryLevel) : 85,
             isOnline: true,
             lastSeen: 'Ahora mismo'
           };
-          child.devices.push(dev);
+          child.devices = [dev];
         } else {
           if (body.deviceName) dev.name = body.deviceName;
           if (body.os) dev.os = body.os;
-          if (body.batteryLevel !== undefined) dev.batteryLevel = Math.round(body.batteryLevel);
+          if (body.batteryLevel !== undefined && body.batteryLevel !== null) dev.batteryLevel = Math.round(body.batteryLevel);
           dev.isOnline = true;
           dev.lastSeen = 'Ahora mismo';
+          child.devices = [dev];
         }
 
         if (body.lat !== undefined && body.lng !== undefined) {
@@ -184,7 +204,7 @@ const server = http.createServer(async (req, res) => {
             lng: body.lng,
             address: body.address || child.currentLocation?.address || `GPS: ${body.lat.toFixed(5)}, ${body.lng.toFixed(5)}`,
             updatedAt: 'Ahora mismo (GPS en vivo)',
-            battery: body.batteryLevel || child.currentLocation?.battery || 85,
+            battery: (body.batteryLevel !== undefined && body.batteryLevel !== null) ? Math.round(body.batteryLevel) : (child.currentLocation?.battery || 85),
             zone: 'Ubicación GPS'
           };
 

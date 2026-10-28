@@ -69,103 +69,104 @@
 
   <!-- ================= TOP NAVIGATION BAR ================= -->
   <header class="bg-[#111827] border-b border-[#283548] sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
       <!-- Brand & Logo -->
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-[#FFB800] flex items-center justify-center shadow-lg shadow-amber-500/20 text-black font-extrabold">
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#FFB800] flex items-center justify-center shadow-lg shadow-amber-500/20 text-black font-extrabold flex-shrink-0">
           <!-- Norton Checkmark Shield Icon -->
-          <svg class="w-6 h-6 fill-current text-black" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 fill-current text-black" viewBox="0 0 24 24">
             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
           </svg>
         </div>
         <div>
-          <div class="flex items-center space-x-2">
-            <span class="font-display font-black text-xl tracking-tight text-white">Norton<span class="text-[#FFB800] ml-1">Family</span></span>
-            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-[#FFB800] border border-amber-500/20">Premier</span>
+          <div class="flex items-center space-x-1.5 sm:space-x-2">
+            <span class="font-display font-black text-base sm:text-xl tracking-tight text-white">Norton<span class="text-[#FFB800] ml-0.5">Family</span></span>
+            <span class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded bg-amber-500/10 text-[#FFB800] border border-amber-500/20">Premier</span>
           </div>
-          <p class="text-xs text-slate-400">Protección y Cuidado Parental Activo</p>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Protección y Cuidado Parental Activo</p>
         </div>
       </div>
 
-      <!-- Child Selector Pills -->
+      <!-- Child Selector Pills (Desktop) -->
       <div id="childSelectorContainer" class="hidden md:flex items-center bg-[#1E293B]/70 p-1 rounded-xl border border-[#283548]">
         <!-- Rendered by JS -->
       </div>
 
       <!-- Action Buttons & Instant Lock -->
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-1.5 sm:space-x-3">
         <!-- Download APK Button -->
-        <a href="/norton-companion.apk" download="norton-companion.apk" class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 font-bold text-xs border border-emerald-500/30 transition shadow">
+        <a href="/norton-companion.apk" download="norton-companion.apk" class="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 font-bold text-xs border border-emerald-500/30 transition shadow">
           <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
-          <span>Descargar APK Nativa</span>
+          <span>Descargar APK</span>
         </a>
 
         <!-- Connect Phone QR Button -->
-        <button onclick="openQrModal()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-[#283548] hover:bg-slate-700 text-amber-300 font-bold text-xs border border-amber-500/30 transition shadow">
+        <button onclick="openQrModal()" class="flex items-center space-x-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-[#283548] hover:bg-slate-700 text-amber-300 font-bold text-xs border border-amber-500/30 transition shadow" title="Vincular Celular / Descargar APK">
           <i data-lucide="qr-code" class="w-4 h-4 text-[#FFB800]"></i>
-          <span>Vincular mi Celular</span>
+          <span class="hidden sm:inline">Vincular Celular</span>
+          <span class="sm:hidden text-[11px]">APK / QR</span>
         </button>
 
         <!-- Live protection indicator -->
-        <div class="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+        <div class="hidden xl:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
           <span class="w-2 h-2 rounded-full bg-emerald-500 badge-pulse"></span>
           <span>Supervisión en vivo</span>
         </div>
 
         <!-- INSTANT LOCK BUTTON (BLOQUEAR TODO / PAUSA INSTANTÁNEA) -->
-        <button id="instantLockBtn" onclick="toggleInstantLock()" class="flex items-center space-x-2 px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-200 shadow-lg bg-[#FFB800] hover:bg-[#E5A600] text-black">
-          <i data-lucide="lock" class="w-4 h-4"></i>
+        <button id="instantLockBtn" onclick="toggleInstantLock()" class="flex items-center space-x-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 shadow-lg bg-[#FFB800] hover:bg-[#E5A600] text-black flex-shrink-0">
+          <i data-lucide="lock" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           <span id="instantLockText">🛑 Bloquear Todo</span>
         </button>
       </div>
     </div>
 
     <!-- Mobile Child Selector -->
-    <div class="md:hidden px-4 py-2 bg-[#161F30] border-t border-[#283548] flex items-center justify-between overflow-x-auto" id="childSelectorMobile">
+    <div class="md:hidden px-3 py-2 bg-[#161F30] border-t border-[#283548] flex items-center space-x-2 overflow-x-auto no-scrollbar" id="childSelectorMobile">
       <!-- Rendered by JS -->
     </div>
   </header>
 
   <!-- ================= SUBHEADER / TABS NAVIGATION ================= -->
-  <div class="bg-[#161F30]/90 backdrop-blur border-b border-[#283548]">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between overflow-x-auto no-scrollbar">
-      <nav class="flex space-x-1 sm:space-x-2 py-2.5">
-        <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
-          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+  <div class="bg-[#161F30]/95 backdrop-blur border-b border-[#283548] sticky top-16 z-40">
+    <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 overflow-x-auto no-scrollbar scroll-smooth">
+      <nav class="flex items-center space-x-1 sm:space-x-2 py-2 whitespace-nowrap min-w-max">
+        <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn flex-shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+          <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           <span>Resumen</span>
         </button>
-        <button onclick="switchTab('time')" id="tab-time" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
-          <i data-lucide="clock" class="w-4 h-4"></i>
+        <button onclick="switchTab('time')" id="tab-time" class="tab-btn flex-shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+          <i data-lucide="clock" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           <span>Tiempo en Pantalla</span>
         </button>
-        <button onclick="switchTab('web')" id="tab-web" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
-          <i data-lucide="globe" class="w-4 h-4"></i>
+        <button onclick="switchTab('web')" id="tab-web" class="tab-btn flex-shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+          <i data-lucide="globe" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           <span>Filtro Web</span>
         </button>
-        <button onclick="switchTab('apps')" id="tab-apps" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
-          <i data-lucide="smartphone" class="w-4 h-4"></i>
+        <button onclick="switchTab('apps')" id="tab-apps" class="tab-btn flex-shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           <span>Aplicaciones</span>
         </button>
-        <button onclick="switchTab('location')" id="tab-location" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
-          <i data-lucide="map-pin" class="w-4 h-4"></i>
+        <button onclick="switchTab('location')" id="tab-location" class="tab-btn flex-shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+          <i data-lucide="map-pin" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
           <span>Ubicación</span>
         </button>
-        <button onclick="switchTab('requests')" id="tab-requests" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all">
-          <i data-lucide="bell" class="w-4 h-4"></i>
-          <span>Alertas y Solicitudes</span>
-          <span id="requestsBadge" class="hidden ml-1 px-1.5 py-0.2 bg-amber-500 text-black text-[11px] font-extrabold rounded-full">0</span>
+        <button onclick="switchTab('requests')" id="tab-requests" class="tab-btn flex-shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+          <i data-lucide="bell" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+          <span>Alertas</span>
+          <span id="requestsBadge" class="hidden ml-1 px-1.5 py-0.2 bg-amber-500 text-black text-[10px] font-extrabold rounded-full">0</span>
         </button>
-        <button onclick="switchTab('simulator')" id="tab-simulator" class="tab-btn flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all text-[#FFB800] bg-amber-500/10 border border-amber-500/30">
-          <i data-lucide="smartphone-charging" class="w-4 h-4"></i>
-          <span>Simulador Dispositivo Niño</span>
+        <button onclick="switchTab('simulator')" id="tab-simulator" class="tab-btn flex-shrink-0 flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-[#FFB800] bg-amber-500/10 border border-amber-500/30">
+          <i data-lucide="smartphone-charging" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+          <span>Simulador</span>
         </button>
       </nav>
     </div>
   </div>
 
   <!-- ================= MAIN CONTENT WRAPPER ================= -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8">
 
     <!-- Notification Toast Container -->
     <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
@@ -878,6 +879,35 @@
     </section>
 
   </main>
+
+  <!-- ================= MOBILE STICKY BOTTOM NAV BAR ================= -->
+  <div class="fixed bottom-0 left-0 right-0 z-40 bg-[#111827]/95 backdrop-blur border-t border-[#283548] py-1.5 px-2 flex items-center justify-around md:hidden shadow-2xl">
+    <button onclick="switchTab('overview')" id="mobnav-overview" class="mob-nav-btn flex flex-col items-center justify-center p-1 text-[#FFB800] transition">
+      <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold mt-0.5">Resumen</span>
+    </button>
+    <button onclick="switchTab('time')" id="mobnav-time" class="mob-nav-btn flex flex-col items-center justify-center p-1 text-slate-400 hover:text-white transition">
+      <i data-lucide="clock" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold mt-0.5">Tiempo</span>
+    </button>
+    <button onclick="switchTab('web')" id="mobnav-web" class="mob-nav-btn flex flex-col items-center justify-center p-1 text-slate-400 hover:text-white transition">
+      <i data-lucide="globe" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold mt-0.5">Web</span>
+    </button>
+    <button onclick="switchTab('apps')" id="mobnav-apps" class="mob-nav-btn flex flex-col items-center justify-center p-1 text-slate-400 hover:text-white transition">
+      <i data-lucide="smartphone" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold mt-0.5">Apps</span>
+    </button>
+    <button onclick="switchTab('location')" id="mobnav-location" class="mob-nav-btn flex flex-col items-center justify-center p-1 text-slate-400 hover:text-white transition">
+      <i data-lucide="map-pin" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold mt-0.5">Ubicación</span>
+    </button>
+    <button onclick="switchTab('requests')" id="mobnav-requests" class="mob-nav-btn flex flex-col items-center justify-center p-1 text-slate-400 hover:text-white transition relative">
+      <i data-lucide="bell" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold mt-0.5">Alertas</span>
+      <span id="requestsBadgeMob" class="hidden absolute top-1 right-2 w-2 h-2 rounded-full bg-amber-500"></span>
+    </button>
+  </div>
 
   <!-- ================= MODAL: CONNECT REAL PHONE QR ================= -->
   <div id="qrModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
@@ -2128,6 +2158,17 @@
       const activeContent = document.getElementById(`content-${tabId}`);
       if (activeContent) {
         activeContent.classList.remove('hidden');
+      }
+
+      // Update Mobile Nav Bar
+      document.querySelectorAll('.mob-nav-btn').forEach(btn => {
+        btn.classList.remove('text-[#FFB800]');
+        btn.classList.add('text-slate-400');
+      });
+      const activeMobBtn = document.getElementById(`mobnav-${tabId}`);
+      if (activeMobBtn) {
+        activeMobBtn.classList.remove('text-slate-400');
+        activeMobBtn.classList.add('text-[#FFB800]');
       }
 
       if (tabId === 'location') {

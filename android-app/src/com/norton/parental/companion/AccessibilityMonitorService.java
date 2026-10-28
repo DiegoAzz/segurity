@@ -15,6 +15,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class AccessibilityMonitorService extends AccessibilityService {
@@ -27,7 +28,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
     private static final String[] DEFAULT_ADULT_KEYWORDS = new String[] {
         "xvideos", "pornhub", "xnxx", "redtube", "youporn", "chaturbate", "stripchat",
         "onlyfans", "erome", "cam4", "brazzers", "xhamster", "spankbang", "hentai",
-        "rule34", "beeg", "tube8", "eporner", "txxx", "porno", "xxx", "sexo", "desnuda"
+        "rule34", "beeg", "tube8", "eporner", "txxx", "porno", "porn", "xxx", "sexo", "desnuda"
     };
 
     public Handler mHandler;
@@ -36,6 +37,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
     private long mLastBlockTime = 0;
 
     public static boolean isPackageBlocked(String packageName) {
+        if (packageName == null) return false;
         if (sBlockedPackages.contains(packageName)) return true;
         if (sBlockedPackages.contains("com.google.android.youtube")) {
             if (packageName.equals("com.google.android.youtube")
@@ -122,7 +124,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
                             }
                         }
 
-                        // 2. Bloqueo de dominios específicos (ej: xvideos.com, omegle.com)
+                        // 2. Bloqueo de dominios específicos
                         int dIdx = json.indexOf("\"blockedDomains\":[");
                         if (dIdx != -1) {
                             int endDIdx = json.indexOf("]", dIdx);
@@ -137,14 +139,14 @@ public class AccessibilityMonitorService extends AccessibilityService {
                             }
                         }
 
-                        // 3. Bloqueo de categorías y pornografía
+                        // 3. Bloqueo de adultos
                         int aIdx = json.indexOf("\"adultBlocked\":");
                         if (aIdx != -1) {
                             String sub = json.substring(aIdx + 15, Math.min(aIdx + 20, json.length()));
                             sAdultBlocked = sub.startsWith("true");
                         }
 
-                        // 4. Palabras clave bloqueadas
+                        // 4. Palabras clave
                         int kIdx = json.indexOf("\"blockedKeywords\":[");
                         if (kIdx != -1) {
                             int endKIdx = json.indexOf("]", kIdx);
@@ -243,6 +245,7 @@ public class AccessibilityMonitorService extends AccessibilityService {
 
         // 1. Pausa Instantánea Activa
         if (LockOverlayService.isCurrentlyLocked()) {
+            performGlobalAction(GLOBAL_ACTION_HOME);
             Intent lockIntent = new Intent(this, LockOverlayService.class);
             lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
             startService(lockIntent);
@@ -264,7 +267,30 @@ public class AccessibilityMonitorService extends AccessibilityService {
             return;
         }
 
-        // 3. Inspección de Navegadores Web para bloqueo de URLs, Pornografía y Sitios Restringidos
+        // 3. Inspección directa del texto del evento (captura lo que el niño escribe en Chrome/buscador)
+        List<CharSequence> texts = event.getText();
+        if (texts != null) {
+            for (CharSequence cs : texts) {
+                if (cs != null && cs.length() > 0) {
+                    String matched = testStringAgainstBlockRules(cs.toString().toLowerCase().trim());
+                    if (matched != null) {
+                        blockWebImmediately(matched);
+                        return;
+                    }
+                }
+            }
+        }
+
+        CharSequence contentDesc = event.getContentDescription();
+        if (contentDesc != null && contentDesc.length() > 0) {
+            String matched = testStringAgainstBlockRules(contentDesc.toString().toLowerCase().trim());
+            if (matched != null) {
+                blockWebImmediately(matched);
+                return;
+            }
+        }
+
+        // 4. Inspección profunda de navegadores (Chrome, Samsung Internet, Firefox, Edge, etc.)
         boolean isBrowser = pkg.equals("com.android.chrome")
                 || pkg.equals("com.chrome.beta")
                 || pkg.equals("com.sec.android.app.sbrowser")
@@ -278,44 +304,88 @@ public class AccessibilityMonitorService extends AccessibilityService {
                 || pkg.contains("chrome");
 
         if (isBrowser) {
-            checkBrowserContentForBlockedWeb();
+            checkBrowserContentForBlockedWeb(event);
         }
     }
 
-    private void checkBrowserContentForBlockedWeb() {
+    private void checkBrowserContentForBlockedWeb(AccessibilityEvent event) {
         long now = System.currentTimeMillis();
-        // Evitar inspecciones duplicadas en menos de 400ms
-        if (now - mLastBlockTime < 1000) return;
+        if (now - mLastBlockTime < 800) return;
 
+        // Revisar source del evento
+        AccessibilityNodeInfo source = event.getSource();
+        if (source != null) {
+            try {
+                String matched = scanNodeForBlockedText(source, 0);
+                if (matched != null) {
+                    blockWebImmediately(matched);
+                    return;
+                }
+            } finally {
+                source.recycle();
+            }
+        }
+
+        // Revisar ventana activa completa
         AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return;
-
-        try {
-            String matched = scanNodeForBlockedText(root, 0);
-            if (matched != null) {
-                mLastBlockTime = now;
-                // KICK AL HOME INMEDIATAMENTE
-                performGlobalAction(GLOBAL_ACTION_HOME);
-
-                // MOSTRAR OVERLAY DE BLOQUEO
-                Intent lockIntent = new Intent(this, LockOverlayService.class);
-                lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
-                lockIntent.putExtra("blocked_reason", "🚫 Sitio Web Bloqueado: Contenido no permitido por tus padres");
-                startService(lockIntent);
-
-                if (mHandler != null) {
-                    mHandler.post(new ToastRunnable(this, "🚫 Norton Parental: Acceso denegado a " + matched));
+        if (root != null) {
+            try {
+                // Revisar campo de URL de Chrome específicamente
+                List<AccessibilityNodeInfo> urlBars = root.findAccessibilityNodeInfosByViewId("com.android.chrome:id/url_bar");
+                if (urlBars != null) {
+                    for (AccessibilityNodeInfo bar : urlBars) {
+                        if (bar.getText() != null) {
+                            String matched = testStringAgainstBlockRules(bar.getText().toString().toLowerCase().trim());
+                            if (matched != null) {
+                                bar.recycle();
+                                blockWebImmediately(matched);
+                                return;
+                            }
+                        }
+                        bar.recycle();
+                    }
                 }
 
-                new ReportWebBlockThread(mServerBaseUrl, matched, "Filtro Web / Contenido para Adultos").start();
+                String matched = scanNodeForBlockedText(root, 0);
+                if (matched != null) {
+                    blockWebImmediately(matched);
+                }
+            } finally {
+                root.recycle();
             }
-        } finally {
-            root.recycle();
         }
+    }
+
+    private void blockWebImmediately(String matched) {
+        mLastBlockTime = System.currentTimeMillis();
+
+        // 1. Expulsar de inmediato al HOME
+        performGlobalAction(GLOBAL_ACTION_HOME);
+
+        // 2. Desplegar pantalla de bloqueo obligatoria
+        Intent lockIntent = new Intent(this, LockOverlayService.class);
+        lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
+        lockIntent.putExtra("blocked_reason", "🚫 Contenido para adultos o sitio restringido bloqueado");
+        startService(lockIntent);
+
+        // 3. Lanzar también LockActivity fullscreen
+        try {
+            Intent lockActIntent = new Intent(this, LockActivity.class);
+            lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            lockActIntent.putExtra("blocked_reason", "🚫 Sitio Web Bloqueado: Contenido no permitido");
+            startActivity(lockActIntent);
+        } catch (Exception ignored) {}
+
+        if (mHandler != null) {
+            mHandler.post(new ToastRunnable(this, "🚫 Norton Parental: Acceso denegado a " + matched));
+        }
+
+        // 4. Reportar alerta en tiempo real al panel de padres
+        new ReportWebBlockThread(mServerBaseUrl, matched, "Filtro Web / Contenido para Adultos").start();
     }
 
     private String scanNodeForBlockedText(AccessibilityNodeInfo node, int depth) {
-        if (node == null || depth > 20) return null;
+        if (node == null || depth > 25) return null;
 
         CharSequence text = node.getText();
         if (text != null && text.length() > 0) {
