@@ -138,6 +138,9 @@
         if (res.ok && data.success) {
           localStorage.setItem('norton_token', data.token);
           localStorage.setItem('norton_user', JSON.stringify(data.user));
+          if (data.user && (data.user.id || data.user.clientId)) {
+            localStorage.setItem('norton_client_id', data.user.id || data.user.clientId);
+          }
 
           if (data.user.role === 'admin') {
             window.location.href = '/admin';

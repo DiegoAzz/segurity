@@ -129,9 +129,12 @@
 
         <!-- Client Account Badge & Logout -->
         <div class="flex items-center space-x-1.5 pl-2 border-l border-slate-700/60">
-          <div class="hidden sm:flex flex-col text-right">
+          <div onclick="openChangePinModal()" class="hidden sm:flex flex-col text-right cursor-pointer hover:bg-slate-800/80 p-1.5 rounded-xl border border-transparent hover:border-amber-400/30 transition group" title="Haz clic para cambiar tu PIN familiar">
             <span id="navClientName" class="text-xs font-bold text-white leading-tight">Familia</span>
-            <span id="navClientCode" class="text-[10px] text-amber-400 font-extrabold leading-tight">PIN: 123456</span>
+            <span id="navClientCode" class="text-[10px] text-amber-400 font-extrabold leading-tight flex items-center justify-end space-x-1">
+              <span>PIN: 123456</span>
+              <span class="text-[9px] opacity-75 group-hover:scale-125 transition-transform">✏️</span>
+            </span>
           </div>
           <button onclick="handleLogout()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition" title="Cerrar Sesión">
             <i data-lucide="log-out" class="w-4 h-4"></i>
@@ -948,11 +951,28 @@
             📱
           </div>
           <div>
-            <h3 class="font-display font-black text-base text-white">Instalar en tu Celular</h3>
-            <p class="text-[11px] text-slate-400">Escanea y descarga la APK automáticamente</p>
+            <h3 class="font-display font-black text-base text-white">Vincular Celular a Perfil</h3>
+            <p class="text-[11px] text-slate-400">Asociar teléfono con el perfil del hijo</p>
           </div>
         </div>
         <button onclick="closeQrModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <!-- Tarjeta de Perfil a Vincular -->
+      <div class="p-3 bg-amber-400/10 border border-amber-400/30 rounded-2xl flex items-center justify-between text-left">
+        <div>
+          <div class="text-[10px] text-amber-300 font-bold uppercase tracking-wider">Hijo Seleccionado:</div>
+          <div class="text-sm font-extrabold text-white flex items-center space-x-1.5 mt-0.5" id="qrTargetChildName">
+            👦 Mi Hijo
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Código Familiar:</div>
+          <div class="flex items-center space-x-1.5 justify-end">
+            <span class="text-sm font-mono font-black text-amber-400" id="qrPairingCode">123456</span>
+            <button type="button" onclick="openChangePinModal()" class="text-[10px] text-amber-400/90 hover:text-amber-300 font-bold underline cursor-pointer">✏️ Cambiar</button>
+          </div>
+        </div>
       </div>
 
       <!-- Selector de Modo de Código QR -->
@@ -973,11 +993,14 @@
       <div class="space-y-2 text-left bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 text-xs">
         <div class="font-bold text-[#FFB800] flex items-center space-x-1.5" id="qrInstructionTitle">
           <i data-lucide="download" class="w-4 h-4"></i>
-          <span>Descarga directa de la aplicación:</span>
+          <span>Pasos sencillos para vincular:</span>
         </div>
-        <p class="text-slate-300 text-xs" id="qrInstructionText">
-          Abre la cámara de tu celular y apunta al código QR. Tu teléfono <b>descargará la APK automáticamente</b> para instalarla de una vez.
-        </p>
+        <ol class="text-slate-300 text-xs space-y-1.5 list-decimal pl-4" id="qrInstructionSteps">
+          <li>Apunta la cámara del celular al código QR para <b>descargar e instalar la app</b>.</li>
+          <li>Abre la app <b>AppzSegurity</b> en el teléfono y coloca el Código Familiar: <b class="text-amber-400 font-mono" id="qrStepCode">123456</b>.</li>
+          <li>Toca el botón <b>"Cambiar Hijo / Asignar"</b> y selecciona a <b class="text-white" id="qrStepChild">este perfil</b> de la lista.</li>
+          <li>¡Listo! El celular queda vinculado a este hijo, supervisado y protegido con PIN.</li>
+        </ol>
         <div class="p-2 rounded-xl bg-black font-mono text-[#FFB800] text-center font-bold break-all select-all text-xs" id="qrDirectUrlText">
           <!-- URL dinamica -->
         </div>
@@ -994,6 +1017,49 @@
         </a>
         <button onclick="closeQrModal()" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">
           Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CAMBIAR PIN FAMILIAR ================= -->
+  <div id="changePinModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#161F30] border border-[#283548] rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center">
+      <div class="flex items-center justify-between border-b border-[#283548] pb-3">
+        <div class="flex items-center space-x-2 text-left">
+          <div class="w-8 h-8 rounded-xl bg-[#FFB800] text-black flex items-center justify-center font-black">
+            🔑
+          </div>
+          <div>
+            <h3 class="font-display font-black text-base text-white">Cambiar Código / PIN</h3>
+            <p class="text-[11px] text-slate-400">Código de vinculación de tu familia</p>
+          </div>
+        </div>
+        <button onclick="closeChangePinModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <div class="space-y-3 text-left">
+        <p class="text-xs text-slate-300">
+          Este código de 4 a 8 dígitos es el que usas para <b>vincular el APK en el celular del niño</b> y proteger los ajustes contra modificaciones:
+        </p>
+        <div>
+          <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tu Nuevo PIN Familiar:</label>
+          <div class="flex space-x-2 mt-1.5">
+            <input type="text" id="inputNewPin" maxlength="8" class="flex-1 px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-center font-mono text-xl font-black text-[#FFB800] tracking-widest focus:outline-none focus:border-[#FFB800]">
+            <button type="button" onclick="generateRandomPin()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs text-slate-200 font-bold transition flex items-center space-x-1" title="Generar código aleatorio">
+              <span>🎲</span>
+              <span>Generar</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex space-x-2 pt-2">
+        <button onclick="saveNewPin()" id="btnSavePin" class="flex-1 py-2.5 rounded-xl bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs shadow-md transition">
+          Guardar Nuevo PIN
+        </button>
+        <button onclick="closeChangePinModal()" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700 transition">
+          Cancelar
         </button>
       </div>
     </div>
@@ -1119,10 +1185,14 @@
     async function authFetch(url, options = {}) {
       const token = localStorage.getItem('norton_token');
       const urlParams = new URLSearchParams(window.location.search);
-      const asClient = urlParams.get('asClient') || localStorage.getItem('norton_impersonate');
+      let userObj = null;
+      try { userObj = JSON.parse(localStorage.getItem('norton_user')); } catch (e) {}
+      const clientId = localStorage.getItem('norton_client_id') || (userObj && (userObj.id || userObj.clientId));
+      const asClient = urlParams.get('asClient') || localStorage.getItem('norton_impersonate') || (userObj && userObj.role === 'client' ? clientId : null);
       
       if (!options.headers) options.headers = {};
       if (token) options.headers['Authorization'] = `Bearer ${token}`;
+      if (clientId) options.headers['x-client-id'] = clientId;
       if (asClient) {
         if (url.includes('?')) {
           url += `&asClient=${asClient}`;
@@ -1208,8 +1278,10 @@
     }
 
     // Render Everything
-    function renderAll() {
-      renderChildSelectors();
+    function renderAll(skipSelectors = false) {
+      if (!skipSelectors) {
+        renderChildSelectors();
+      }
       renderInstantLockState();
       renderOverviewTab();
       renderTimeTab();
@@ -1291,6 +1363,15 @@
 
       if (containerDesktop) containerDesktop.innerHTML = makeDropdownHtml(false);
       if (containerMobile) containerMobile.innerHTML = makeDropdownHtml(true);
+
+      if (wasDesktopOpen) {
+        const m = document.getElementById('childDropdownMenuDesktop');
+        if (m) m.classList.remove('hidden');
+      }
+      if (wasMobileOpen) {
+        const m = document.getElementById('childDropdownMenuMobile');
+        if (m) m.classList.remove('hidden');
+      }
     }
 
     function toggleChildDropdown(event, isMobile) {
@@ -2533,11 +2614,95 @@
 
     function openQrModal() {
       setQrMode('apk');
+      const active = getActiveChild();
+      const code = appData.pairingCode || '123456';
+
+      const targetChildName = document.getElementById('qrTargetChildName');
+      if (targetChildName) {
+        targetChildName.innerHTML = `<span class="text-base">${active.avatar || '👦'}</span> <span>${active.name || 'Mi Hijo'}</span> <span class="text-xs font-normal text-amber-300">(${active.age || 10} años)</span>`;
+      }
+      const qrPairingCodeElem = document.getElementById('qrPairingCode');
+      if (qrPairingCodeElem) {
+        qrPairingCodeElem.innerText = code;
+      }
+      const qrStepCodeElem = document.getElementById('qrStepCode');
+      if (qrStepCodeElem) {
+        qrStepCodeElem.innerText = code;
+      }
+      const qrStepChildElem = document.getElementById('qrStepChild');
+      if (qrStepChildElem) {
+        qrStepChildElem.innerText = `"${active.name}"`;
+      }
+
       document.getElementById('qrModal').classList.remove('hidden');
     }
 
     function closeQrModal() {
       document.getElementById('qrModal').classList.add('hidden');
+    }
+
+    // PIN Management Functions
+    function openChangePinModal() {
+      const code = appData.clientInfo?.pairingCode || appData.pairingCode || '123456';
+      const input = document.getElementById('inputNewPin');
+      if (input) input.value = code;
+      const modal = document.getElementById('changePinModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeChangePinModal() {
+      const modal = document.getElementById('changePinModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function generateRandomPin() {
+      const random = String(Math.floor(100000 + Math.random() * 900000));
+      const input = document.getElementById('inputNewPin');
+      if (input) input.value = random;
+    }
+
+    async function saveNewPin() {
+      const input = document.getElementById('inputNewPin');
+      const newPin = input ? input.value.trim() : '';
+      if (!newPin || newPin.length < 4 || newPin.length > 8 || !/^\d+$/.test(newPin)) {
+        return showToast('El PIN debe tener entre 4 y 8 dígitos numéricos.', 'danger');
+      }
+
+      const btn = document.getElementById('btnSavePin');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Guardando...';
+      }
+
+      try {
+        const res = await authFetch('/api/family/update-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pairingCode: newPin })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (appData.clientInfo) appData.clientInfo.pairingCode = newPin;
+          appData.pairingCode = newPin;
+          const navCode = document.getElementById('navClientCode');
+          if (navCode) navCode.innerHTML = `<span>PIN: ${newPin}</span><span class="text-[9px] opacity-75">✏️</span>`;
+          const qrCodeElem = document.getElementById('qrPairingCode');
+          if (qrCodeElem) qrCodeElem.innerText = newPin;
+          const qrStepCodeElem = document.getElementById('qrStepCode');
+          if (qrStepCodeElem) qrStepCodeElem.innerText = newPin;
+          closeChangePinModal();
+          showToast(`✅ ¡Nuevo PIN familiar guardado: ${newPin}!`, 'success');
+        } else {
+          showToast(data.error || 'No se pudo actualizar el PIN.', 'danger');
+        }
+      } catch (err) {
+        showToast('Error de conexión al guardar el PIN.', 'danger');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = 'Guardar Nuevo PIN';
+        }
+      }
     }
 
     // Initialize clock in phone notch
@@ -2561,7 +2726,12 @@
             showToast('🔔 ¡Nueva solicitud recibida de tu hijo desde su celular!', 'info');
           }
           appData = newData;
-          renderAll();
+
+          const isModalOpen = document.getElementById('addChildModal') && !document.getElementById('addChildModal').classList.contains('hidden');
+          const isDropdownOpen = (document.getElementById('childDropdownMenuDesktop') && !document.getElementById('childDropdownMenuDesktop').classList.contains('hidden')) ||
+                                 (document.getElementById('childDropdownMenuMobile') && !document.getElementById('childDropdownMenuMobile').classList.contains('hidden'));
+
+          renderAll(isModalOpen || isDropdownOpen);
         }
       } catch (e) {}
     }, 2500);

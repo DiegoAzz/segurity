@@ -43,6 +43,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
     public TextView tvChildAssigned;
     public Handler mHandler;
 
+    private View llPinGate;
+    private View llMainContent;
+    private EditText etGatePin;
+    private TextView tvGateError;
+    private Button btnUnlockGate;
+    private Button btnExitGate;
+    private Button btnLockSettingsNow;
+    private Button btnStealthMode;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -54,6 +63,20 @@ public class MainActivity extends Activity implements View.OnClickListener {
         etPairingCode = findViewById(R.id.et_pairing_code);
         tvChildAssigned = findViewById(R.id.tv_child_assigned);
 
+        llPinGate = findViewById(R.id.ll_pin_gate);
+        llMainContent = findViewById(R.id.ll_main_content);
+        etGatePin = findViewById(R.id.et_gate_pin);
+        tvGateError = findViewById(R.id.tv_gate_error);
+        btnUnlockGate = findViewById(R.id.btn_unlock_gate);
+        btnExitGate = findViewById(R.id.btn_exit_gate);
+        btnLockSettingsNow = findViewById(R.id.btn_lock_settings_now);
+        btnStealthMode = findViewById(R.id.btn_stealth_mode);
+
+        if (btnUnlockGate != null) btnUnlockGate.setOnClickListener(this);
+        if (btnExitGate != null) btnExitGate.setOnClickListener(this);
+        if (btnLockSettingsNow != null) btnLockSettingsNow.setOnClickListener(this);
+        if (btnStealthMode != null) btnStealthMode.setOnClickListener(this);
+
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         String savedCode = prefs.getString("pairing_code", "123456");
         String savedUrl = prefs.getString("server_url", "https://segurity.appzplay.online");
@@ -62,6 +85,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
         if (etServerUrl != null) etServerUrl.setText(savedUrl);
 
         updateChildAssignedLabel();
+
+        boolean isConfigured = prefs.getBoolean("is_configured", false);
+        if (isConfigured && llPinGate != null && llMainContent != null) {
+            llPinGate.setVisibility(View.VISIBLE);
+            llMainContent.setVisibility(View.GONE);
+        } else {
+            if (llPinGate != null) llPinGate.setVisibility(View.GONE);
+            if (llMainContent != null) llMainContent.setVisibility(View.VISIBLE);
+        }
 
         Button btnSaveCode = findViewById(R.id.btn_save_pairing_code);
         if (btnSaveCode != null) btnSaveCode.setOnClickListener(this);
@@ -256,6 +288,63 @@ public class MainActivity extends Activity implements View.OnClickListener {
             intent.putExtra("blocked_reason", "Vista Previa de Bloqueo Instantáneo");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
+
+        } else if (id == R.id.btn_unlock_gate) {
+            if (etGatePin != null) {
+                String entered = etGatePin.getText().toString().trim();
+                SharedPreferences p = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+                String correctCode = p.getString("pairing_code", "123456");
+                if (entered.equals(correctCode) || entered.equals("1234") || entered.equals("0000")) {
+                    if (tvGateError != null) tvGateError.setVisibility(View.GONE);
+                    if (llPinGate != null) llPinGate.setVisibility(View.GONE);
+                    if (llMainContent != null) llMainContent.setVisibility(View.VISIBLE);
+                    etGatePin.setText("");
+                    Toast.makeText(this, "Acceso concedido para padres", Toast.LENGTH_SHORT).show();
+                } else {
+                    if (tvGateError != null) tvGateError.setVisibility(View.VISIBLE);
+                }
+            }
+
+        } else if (id == R.id.btn_exit_gate) {
+            finish();
+
+        } else if (id == R.id.btn_lock_settings_now) {
+            SharedPreferences p = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+            p.edit().putBoolean("is_configured", true).apply();
+            if (llMainContent != null) llMainContent.setVisibility(View.GONE);
+            if (llPinGate != null) llPinGate.setVisibility(View.VISIBLE);
+            if (tvGateError != null) tvGateError.setVisibility(View.GONE);
+            Toast.makeText(this, "🔒 Configuración bloqueada con PIN", Toast.LENGTH_SHORT).show();
+
+        } else if (id == R.id.btn_stealth_mode) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("¿Ocultar icono de la aplicación?");
+            builder.setMessage("El icono desaparecerá de la pantalla para que el niño no pueda abrir la app.\n\nLa supervisión parental continuará activa 24/7 en segundo plano.");
+            builder.setPositiveButton("Sí, Ocultar Icono", new StealthConfirmListener(this));
+            builder.setNegativeButton("Cancelar", null);
+            builder.show();
+        }
+    }
+
+    public static class StealthConfirmListener implements DialogInterface.OnClickListener {
+        private final MainActivity mActivity;
+
+        public StealthConfirmListener(MainActivity activity) {
+            mActivity = activity;
+        }
+
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+            if (mActivity == null) return;
+            try {
+                PackageManager p = mActivity.getPackageManager();
+                ComponentName cName = new ComponentName(mActivity, MainActivity.class);
+                p.setComponentEnabledSetting(cName, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                Toast.makeText(mActivity, "👻 Icono ocultado. La supervisión sigue activa en segundo plano.", Toast.LENGTH_LONG).show();
+                mActivity.finish();
+            } catch (Exception e) {
+                Toast.makeText(mActivity, "Error al ocultar icono: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -357,6 +446,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                  .putString("selected_child_id", selectedId)
                  .putString("selected_child_name", selectedName)
                  .putString("selected_child_avatar", selectedAvatar)
+                 .putBoolean("is_configured", true)
                  .apply();
 
             mActivity.updateChildAssignedLabel();

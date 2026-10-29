@@ -226,11 +226,22 @@ function loadDatabase() {
     }
   });
 
+  if (!loaded.sessions) {
+    loaded.sessions = {};
+  }
+
+  // Asegurar persistencia inmediata en disco
+  saveDatabase(loaded);
+
   return loaded;
 }
 
 function saveDatabase(db) {
   try {
+    const dir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
     return true;
   } catch (err) {
@@ -241,8 +252,25 @@ function saveDatabase(db) {
 
 let db = loadDatabase();
 
-// In-Memory Token Session Store
-const sessions = new Map();
+// Sesiones persistentes (para no perder login ni cuentas al reiniciar)
+function getSession(token) {
+  if (!token) return null;
+  if (!db.sessions) db.sessions = {};
+  return db.sessions[token] || null;
+}
+
+function setSession(token, data) {
+  if (!db.sessions) db.sessions = {};
+  db.sessions[token] = data;
+  saveDatabase(db);
+}
+
+function deleteSession(token) {
+  if (db.sessions && token) {
+    delete db.sessions[token];
+    saveDatabase(db);
+  }
+}
 
 // Helper para resolver el inquilino (familia / cliente) activo en cada solicitud
 function resolveTenant(req, reqUrl, body = {}) {
@@ -254,7 +282,7 @@ function resolveTenant(req, reqUrl, body = {}) {
     token = reqUrl.searchParams.get('token');
   }
 
-  const session = token ? sessions.get(token) : null;
+  const session = getSession(token);
 
   // Impersonación por Super Admin o código de emparejamiento desde el APK
   const asClient = reqUrl.searchParams.get('asClient') || req.headers['x-client-id'];
@@ -365,7 +393,7 @@ const server = http.createServer(async (req, res) => {
       // Verificar Super Admin
       if (email === db.admin.email.toLowerCase() && password === db.admin.password) {
         const token = 'adm_' + Date.now() + '_' + Math.random().toString(36).substring(2);
-        sessions.set(token, { role: 'admin', email: db.admin.email });
+        setSession(token, { role: 'admin', email: db.admin.email });
         return sendJson(res, 200, {
           success: true,
           token,
@@ -393,7 +421,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const token = 'cli_' + Date.now() + '_' + Math.random().toString(36).substring(2);
-        sessions.set(token, { role: 'client', clientId: client.id, email: client.email });
+        setSession(token, { role: 'client', clientId: client.id, email: client.email });
         return sendJson(res, 200, {
           success: true,
           token,
@@ -418,7 +446,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/auth/me' && req.method === 'GET') {
       let authHeader = req.headers['authorization'] || '';
       let token = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : reqUrl.searchParams.get('token');
-      const sess = token ? sessions.get(token) : null;
+      const sess = getSession(token);
       if (!sess) return sendJson(res, 401, { error: 'No autenticado' });
 
       if (sess.role === 'admin') {
@@ -453,7 +481,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
       let authHeader = req.headers['authorization'] || '';
       let token = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : reqUrl.searchParams.get('token');
-      if (token) sessions.delete(token);
+      if (token) deleteSession(token);
       return sendJson(res, 200, { success: true });
     }
 
@@ -465,7 +493,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/admin/clients' && req.method === 'GET') {
       let authHeader = req.headers['authorization'] || '';
       let token = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : reqUrl.searchParams.get('token');
-      const sess = token ? sessions.get(token) : null;
+      const sess = getSession(token);
       if (!sess || sess.role !== 'admin') {
         return sendJson(res, 403, { error: 'Acceso exclusivo de administrador' });
       }
@@ -497,7 +525,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/admin/clients/create' && req.method === 'POST') {
       let authHeader = req.headers['authorization'] || '';
       let token = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : reqUrl.searchParams.get('token');
-      const sess = token ? sessions.get(token) : null;
+      const sess = getSession(token);
       if (!sess || sess.role !== 'admin') {
         return sendJson(res, 403, { error: 'Acceso exclusivo de administrador' });
       }
@@ -612,6 +640,33 @@ const server = http.createServer(async (req, res) => {
           instantLockActive: !!c.instantLockActive
         }))
       });
+    }
+
+    // Actualizar o cambiar código PIN de vinculación familiar
+    if (pathname === '/api/family/update-code' && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { client, tenantDb } = resolveTenant(req, reqUrl, body);
+      const newCode = (body.pairingCode || '').trim();
+
+      if (!newCode || newCode.length < 4 || newCode.length > 8 || !/^\d+$/.test(newCode)) {
+        return sendJson(res, 400, { success: false, error: 'El código debe tener entre 4 y 8 dígitos numéricos.' });
+      }
+
+      if (Array.isArray(db.clients)) {
+        const inUse = db.clients.find(c => c.pairingCode === newCode && (!client || c.id !== client.id));
+        if (inUse) {
+          return sendJson(res, 400, { success: false, error: 'Este código ya pertenece a otra familia. Elige uno diferente.' });
+        }
+      }
+
+      if (client) {
+        client.pairingCode = newCode;
+      }
+      db.pairingCode = newCode;
+      saveDatabase(db);
+
+      console.log(`[FAMILIA] PIN de vinculación actualizado a: ${newCode} para: ${client ? client.name : 'default'}`);
+      return sendJson(res, 200, { success: true, pairingCode: newCode });
     }
 
     // Obtener estado completo de la familia
@@ -762,7 +817,7 @@ const server = http.createServer(async (req, res) => {
     // Crear o editar hijo
     if (pathname === '/api/children/create' && req.method === 'POST') {
       const body = await parseRequestBody(req);
-      const { tenantDb } = resolveTenant(req, reqUrl, body);
+      const { client, tenantDb } = resolveTenant(req, reqUrl, body);
       const newChild = {
         id: 'child_' + Date.now(),
         name: body.name || 'Mi Hijo',
@@ -786,8 +841,16 @@ const server = http.createServer(async (req, res) => {
       if (!tenantDb.children) tenantDb.children = [];
       tenantDb.children.push(newChild);
       tenantDb.activeChildId = newChild.id;
+
+      if (!db.children) db.children = [];
+      if (!db.children.find(c => c.id === newChild.id)) {
+        db.children.push(newChild);
+      }
+      db.activeChildId = newChild.id;
+
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, child: newChild });
+      console.log(`[HIJOS] Nuevo hijo registrado: ${newChild.name} (${newChild.age}a) para: ${client ? client.name : 'default'}`);
+      return sendJson(res, 200, { success: true, child: newChild, children: tenantDb.children });
     }
 
     // Limpiar todos los datos de ejemplo (Reset a limpio)
