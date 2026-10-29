@@ -1756,7 +1756,10 @@
       }
 
       // Pending requests
-      const childRequests = appData.requests.filter(r => r.childId === child.id && r.status === 'pending');
+      const childRequests = (appData.requests || []).filter(r => {
+        if (r.status !== 'pending') return false;
+        return r.childId === child.id || (child.id === 'child_user_1' && (r.childId === 'child_1' || !r.childId));
+      });
       document.getElementById('overviewPendingCount').innerText = `${childRequests.length} pendientes`;
       const requestsContainer = document.getElementById('overviewRequestsList');
       if (childRequests.length === 0) {
@@ -1770,8 +1773,8 @@
             </div>
             <p class="text-slate-300 text-xs font-medium">"${r.message}"</p>
             <div class="flex justify-end space-x-2 pt-1">
-              <button onclick="respondRequest('${r.id}', 'rejected')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold">Rechazar</button>
-              <button onclick="respondRequest('${r.id}', 'approved')" class="px-3 py-1 rounded-lg bg-[#FFB800] hover:bg-[#E5A600] text-black text-[11px] font-extrabold shadow-sm">Aprobar</button>
+              <button onclick="respondRequest('${r.id}', 'rejected')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition">Rechazar</button>
+              <button onclick="respondRequest('${r.id}', 'approved')" class="px-3 py-1 rounded-lg bg-[#FFB800] hover:bg-[#E5A600] text-black text-[11px] font-extrabold shadow-sm transition">Aprobar</button>
             </div>
           </div>
         `).join('');
@@ -2794,18 +2797,40 @@
     }
 
     // Toast Notifications
-    function showToast(message, type = 'info') {
+    function showToast(message, type = 'info', onClickAction = null) {
       const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      // Evitar saturación: no duplicar el mismo mensaje si ya está en pantalla
+      const existing = Array.from(container.children).find(t => t.dataset.toastMsg === message);
+      if (existing) return;
+
       const toast = document.createElement('div');
+      toast.dataset.toastMsg = message;
       
       let border = 'border-slate-700 bg-slate-900 text-slate-100';
       if (type === 'success') border = 'border-emerald-500 bg-emerald-950 text-emerald-100 shadow-emerald-500/10';
       if (type === 'danger') border = 'border-red-500 bg-red-950 text-red-100 shadow-red-500/10';
       if (type === 'info') border = 'border-amber-500 bg-slate-900 text-amber-100 shadow-amber-500/10';
 
-      toast.className = `p-4 rounded-xl border text-xs font-semibold shadow-2xl flex items-center space-x-3 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${border}`;
-      toast.innerHTML = `<span>🛡️</span><span>${message}</span>`;
+      const interactive = onClickAction ? 'cursor-pointer hover:border-[#FFB800] hover:scale-[1.02] transition-all' : '';
+      toast.className = `p-4 rounded-xl border text-xs font-semibold shadow-2xl flex items-center justify-between gap-3 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${border} ${interactive}`;
       
+      toast.innerHTML = `
+        <div class="flex items-center space-x-2.5">
+          <span>🔔</span>
+          <span>${message}</span>
+        </div>
+        ${onClickAction ? `<span class="px-2 py-1 bg-[#FFB800] text-black font-extrabold rounded-lg text-[10px] shrink-0">Revisar</span>` : ''}
+      `;
+      
+      if (onClickAction) {
+        toast.onclick = () => {
+          try { onClickAction(); } catch(e) {}
+          toast.remove();
+        };
+      }
+
       container.appendChild(toast);
       
       setTimeout(() => {
@@ -2815,7 +2840,7 @@
       setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-2');
         setTimeout(() => toast.remove(), 300);
-      }, 4000);
+      }, 5000);
     }
 
     // QR Modal with Direct APK Download & Web Option
@@ -2954,15 +2979,15 @@
     // Auto-refresh data every 2.5s for real-time parent sync
     setInterval(async () => {
       try {
-        const currentChildId = localStorage.getItem('norton_active_child_id') || 'child_user_1';
-        const res = await authFetch(`/api/data?childId=${encodeURIComponent(currentChildId)}`);
+        const currentId = localStorage.getItem('norton_active_child_id') || appData.activeChildId || 'child_user_1';
+        const res = await authFetch(`/api/data?childId=${encodeURIComponent(currentId)}`);
         if (res.ok) {
           const newData = await res.json();
           // Detect if a new pending request arrived
-          const oldPending = appData.requests?.filter(r => r.status === 'pending').length || 0;
-          const newPending = newData.requests?.filter(r => r.status === 'pending').length || 0;
+          const oldPending = (appData.requests || []).filter(r => r.status === 'pending').length;
+          const newPending = (newData.requests || []).filter(r => r.status === 'pending').length;
           if (newPending > oldPending) {
-            showToast('🔔 ¡Nueva solicitud recibida de tu hijo desde su celular!', 'info');
+            showToast('¡Nueva solicitud recibida de tu hijo desde su celular!', 'info', () => switchTab('requests'));
           }
 
           // Detectar si un nuevo celular o aplicaciones acaban de ser vinculados
@@ -2982,7 +3007,6 @@
             }
           }
           // Preservar el perfil de hijo que el padre está viendo activamente en su pantalla
-          const currentId = localStorage.getItem('norton_active_child_id') || appData.activeChildId;
           newData.activeChildId = currentId;
           appData = newData;
 
@@ -2992,7 +3016,9 @@
 
           renderAll(isModalOpen || isDropdownOpen);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Error al sincronizar datos en vivo:', e);
+      }
     }, 2500);
 
     // Initial Load

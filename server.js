@@ -1155,6 +1155,16 @@ const server = http.createServer(async (req, res) => {
         if (rootChild) rootChild.instantLockActive = child.instantLockActive;
       }
       
+      // Si el padre desbloquea al hijo, resolver automáticamente cualquier solicitud de desbloqueo pendiente
+      if (!child.instantLockActive && Array.isArray(tenantDb.requests)) {
+        tenantDb.requests.forEach(r => {
+          if ((r.childId === child.id || (child.id === 'child_user_1' && r.childId === 'child_1') || !r.childId) && r.status === 'pending') {
+            r.status = 'approved';
+            r.respondedAt = new Date().toISOString();
+          }
+        });
+      }
+
       const logEntry = {
         id: 'log_' + Date.now(),
         childId: child.id,
@@ -1412,8 +1422,18 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/child/request' && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const { tenantDb } = resolveTenant(req, reqUrl, body);
-      const child = (tenantDb.children || []).find(c => c.id === (body.childId || tenantDb.activeChildId));
+      const child = (tenantDb.children || []).find(c => c.id === body.childId || (body.childId === 'child_1' && c.id === 'child_user_1')) ||
+                    (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) ||
+                    (tenantDb.children || [])[0];
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
+
+      if (!tenantDb.requests) tenantDb.requests = [];
+
+      // Evitar saturar la base de datos si ya existe una solicitud idéntica pendiente en el último minuto
+      const recentPending = tenantDb.requests.find(r => r.childId === child.id && r.status === 'pending');
+      if (recentPending) {
+        return sendJson(res, 200, { success: true, request: recentPending, note: 'Solicitud previa ya registrada' });
+      }
 
       const newRequest = {
         id: 'req_' + Date.now(),
@@ -1427,7 +1447,6 @@ const server = http.createServer(async (req, res) => {
         status: 'pending'
       };
 
-      if (!tenantDb.requests) tenantDb.requests = [];
       tenantDb.requests.unshift(newRequest);
       saveDatabase(db);
       return sendJson(res, 200, { success: true, request: newRequest });

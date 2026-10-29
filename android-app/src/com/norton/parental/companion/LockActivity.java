@@ -155,6 +155,22 @@ public class LockActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    public static class ResetAskButtonRunnable implements Runnable {
+        private final LockActivity mActivity;
+
+        public ResetAskButtonRunnable(LockActivity activity) {
+            mActivity = activity;
+        }
+
+        @Override
+        public void run() {
+            if (mActivity != null && mActivity.mBtnAskParent != null) {
+                mActivity.mBtnAskParent.setEnabled(true);
+                mActivity.mBtnAskParent.setText("Pedir Tiempo a Padres");
+            }
+        }
+    }
+
     public static class ShowToastRunnable implements Runnable {
         private final Context mContext;
         private final String mMsg;
@@ -357,6 +373,13 @@ public class LockActivity extends Activity implements View.OnClickListener {
             verifyParentPin();
 
         } else if (id == R.id.btn_overlay_ask) {
+            if (mBtnAskParent != null) {
+                mBtnAskParent.setEnabled(false);
+                mBtnAskParent.setText("⏳ Solicitud enviada a tus padres");
+                if (mHandler != null) {
+                    mHandler.postDelayed(new ResetAskButtonRunnable(this), 30000);
+                }
+            }
             Toast.makeText(this, "Enviando solicitud a tus padres...", Toast.LENGTH_SHORT).show();
             new SendRequestThread(this).start();
 
