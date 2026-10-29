@@ -935,6 +935,7 @@ const server = http.createServer(async (req, res) => {
       const child = (tenantDb.children || []).find(c => c.id === body.childId);
       if (child) {
         tenantDb.activeChildId = body.childId;
+        db.activeChildId = body.childId;
         saveDatabase(db);
         return sendJson(res, 200, { success: true, activeChildId: tenantDb.activeChildId, child });
       }
@@ -974,6 +975,10 @@ const server = http.createServer(async (req, res) => {
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
 
       child.instantLockActive = body.locked !== undefined ? body.locked : !child.instantLockActive;
+      if (Array.isArray(db.children)) {
+        const rootChild = db.children.find(c => c.id === childId);
+        if (rootChild) rootChild.instantLockActive = child.instantLockActive;
+      }
       
       const logEntry = {
         id: 'log_' + Date.now(),

@@ -1285,7 +1285,9 @@
     }
 
     function getActiveChild() {
-      return appData.children.find(c => c.id === appData.activeChildId) || appData.children[0] || {};
+      const savedId = localStorage.getItem('norton_active_child_id') || appData.activeChildId;
+      const found = (appData.children || []).find(c => c.id === savedId);
+      return found || (appData.children && appData.children[0]) || {};
     }
 
     // Render Everything
@@ -1472,17 +1474,18 @@
     }
 
     async function selectChild(childId) {
+      localStorage.setItem('norton_active_child_id', childId);
+      if (appData) appData.activeChildId = childId;
+      closeAllChildDropdowns();
+      renderAll(false);
+      showToast(`Perfil cambiado a ${getActiveChild().name}`, 'info');
+
       try {
-        const res = await authFetch('/api/children/select', {
+        await authFetch('/api/children/select', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId })
         });
-        if (res.ok) {
-          appData.activeChildId = childId;
-          renderAll();
-          showToast(`Perfil cambiado a ${getActiveChild().name}`, 'info');
-        }
       } catch (e) {
         console.error(e);
       }
@@ -1514,6 +1517,15 @@
     async function toggleInstantLock(forceState) {
       const child = getActiveChild();
       const targetState = forceState !== undefined ? forceState : !child.instantLockActive;
+      
+      // Actualización optimista instantánea: cambia el botón y el banner en 0 milisegundos
+      child.instantLockActive = targetState;
+      renderInstantLockState();
+      showToast(
+        targetState ? `🚨 ¡Dispositivos de ${child.name} BLOQUEADOS!` : `Dispositivos de ${child.name} reanudados`,
+        targetState ? 'danger' : 'success'
+      );
+
       try {
         const res = await authFetch('/api/instant-lock', {
           method: 'POST',
@@ -1526,13 +1538,17 @@
           if (target) target.instantLockActive = data.instantLockActive;
           if (data.log) appData.activityLogs.unshift(data.log);
           renderAll();
-          showToast(
-            targetState ? `🚨 ¡Dispositivos de ${child.name} BLOQUEADOS!` : `Dispositivos de ${child.name} reanudados`,
-            targetState ? 'danger' : 'success'
-          );
+        } else {
+          // Si el servidor falla, revertir
+          child.instantLockActive = !targetState;
+          renderInstantLockState();
+          showToast('No se pudo aplicar el bloqueo en el servidor.', 'danger');
         }
       } catch (err) {
         console.error(err);
+        child.instantLockActive = !targetState;
+        renderInstantLockState();
+        showToast('Error de conexión al aplicar el bloqueo.', 'danger');
       }
     }
 
@@ -2741,6 +2757,9 @@
           if (newPending > oldPending) {
             showToast('🔔 ¡Nueva solicitud recibida de tu hijo desde su celular!', 'info');
           }
+          // Preservar el perfil de hijo que el padre está viendo activamente en su pantalla
+          const currentId = localStorage.getItem('norton_active_child_id') || appData.activeChildId;
+          newData.activeChildId = currentId;
           appData = newData;
 
           const isModalOpen = document.getElementById('addChildModal') && !document.getElementById('addChildModal').classList.contains('hidden');
