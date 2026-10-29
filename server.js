@@ -715,24 +715,6 @@ const server = http.createServer(async (req, res) => {
         : (req.headers.host || `${LOCAL_IP}:${PORT}`);
       const baseUrl = `${protocol}://${host}`;
 
-      const blockedPackages = (tenantDb.monitoredApps || [])
-        .filter(a => a.action === 'blocked')
-        .map(a => a.packageName);
-
-      const blockedDomains = (tenantDb.customWebRules || [])
-        .filter(r => r.action === 'blocked')
-        .map(r => r.domain.toLowerCase().trim());
-
-      const adultCategory = (tenantDb.webCategories || []).find(c => c.id === 'cat_adult');
-      const adultBlocked = adultCategory ? (adultCategory.action === 'blocked') : true;
-
-      const blockedKeywords = [];
-      (tenantDb.webCategories || []).forEach(cat => {
-        if (cat.action === 'blocked' && Array.isArray(cat.keywords)) {
-          blockedKeywords.push(...cat.keywords);
-        }
-      });
-
       const targetChildId = reqUrl.searchParams.get('childId');
       const isApkRequest = reqUrl.searchParams.has('code');
       const deviceParam = reqUrl.searchParams.get('device');
@@ -769,6 +751,33 @@ const server = http.createServer(async (req, res) => {
           activeChild = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0];
         }
       }
+
+      // Calcular aplicaciones aplicables para este hijo evaluado
+      let childAppsForRules = [];
+      if (activeChild && Array.isArray(activeChild.monitoredApps) && activeChild.monitoredApps.length > 0) {
+        childAppsForRules = activeChild.monitoredApps;
+      } else if (Array.isArray(tenantDb.monitoredApps)) {
+        childAppsForRules = tenantDb.monitoredApps.filter(a => !a.childId || (activeChild && a.childId === activeChild.id));
+      }
+
+      const blockedPackages = childAppsForRules
+        .filter(a => a.action === 'blocked')
+        .map(a => a.packageName);
+
+      const blockedDomains = (tenantDb.customWebRules || [])
+        .filter(r => r.action === 'blocked')
+        .map(r => r.domain.toLowerCase().trim());
+
+      const adultCategory = (tenantDb.webCategories || []).find(c => c.id === 'cat_adult');
+      const adultBlocked = adultCategory ? (adultCategory.action === 'blocked') : true;
+
+      const blockedKeywords = [];
+      (tenantDb.webCategories || []).forEach(cat => {
+        if (cat.action === 'blocked' && Array.isArray(cat.keywords)) {
+          blockedKeywords.push(...cat.keywords);
+        }
+      });
+
       // El estado instantLockActive en la raíz de la respuesta responde únicamente al hijo evaluado
       const instantLockActive = activeChild ? !!activeChild.instantLockActive : false;
 
@@ -793,7 +802,7 @@ const server = http.createServer(async (req, res) => {
           activeChildId: activeChild.id,
           instantLockActive: !!activeChild.instantLockActive,
           children: [isolatedChild],
-          monitoredApps: (tenantDb.monitoredApps || []).filter(a => !a.childId || a.childId === activeChild.id),
+          monitoredApps: childAppsForRules,
           blockedPackages,
           blockedDomains,
           blockedKeywords,
@@ -1375,17 +1384,26 @@ const server = http.createServer(async (req, res) => {
       const targetChildId = body.childId || tenantDb.activeChildId;
       const targetChild = (tenantDb.children || []).find(c => c.id === targetChildId);
 
-      let app = (tenantDb.monitoredApps || []).find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
+      let app = null;
       let childApp = null;
+      // 1. Buscar prioritariamente en el hijo objetivo
       if (targetChild && Array.isArray(targetChild.monitoredApps)) {
         childApp = targetChild.monitoredApps.find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
-        if (!app) app = childApp;
+        if (childApp) app = childApp;
       }
+      // 2. Si no se encontró en el hijo, buscar en tenantDb.monitoredApps
+      if (!app && Array.isArray(tenantDb.monitoredApps)) {
+        app = tenantDb.monitoredApps.find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
+      }
+      // 3. Fallback: buscar en cualquier otro hijo
       if (!app) {
         (tenantDb.children || []).forEach(c => {
           if (!app && Array.isArray(c.monitoredApps)) {
-            app = c.monitoredApps.find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
-            if (app) childApp = app;
+            const found = c.monitoredApps.find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
+            if (found) {
+              app = found;
+              childApp = found;
+            }
           }
         });
       }
@@ -1400,13 +1418,23 @@ const server = http.createServer(async (req, res) => {
         childApp.dailyLimitMinutes = app.dailyLimitMinutes;
       }
 
+      // Si el hijo objetivo tiene la app, actualizar su estado allí
+      if (targetChild && Array.isArray(targetChild.monitoredApps)) {
+        const cIdx = targetChild.monitoredApps.findIndex(a => a.id === app.id || a.packageName === app.packageName);
+        if (cIdx !== -1) {
+          targetChild.monitoredApps[cIdx].action = app.action;
+          if (app.dailyLimitMinutes !== undefined) targetChild.monitoredApps[cIdx].dailyLimitMinutes = app.dailyLimitMinutes;
+        }
+      }
+
+      // Mantener sincronizado tenantDb.monitoredApps para compatibilidad global
       if (!tenantDb.monitoredApps) tenantDb.monitoredApps = [];
       const rootIdx = tenantDb.monitoredApps.findIndex(a => a.id === app.id || a.packageName === app.packageName);
       if (rootIdx !== -1) {
         tenantDb.monitoredApps[rootIdx].action = app.action;
         if (app.dailyLimitMinutes !== undefined) tenantDb.monitoredApps[rootIdx].dailyLimitMinutes = app.dailyLimitMinutes;
       } else {
-        tenantDb.monitoredApps.push(app);
+        tenantDb.monitoredApps.push({ ...app, childId: targetChild ? targetChild.id : undefined });
       }
 
       const logEntry = {
