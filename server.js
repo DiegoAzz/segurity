@@ -734,9 +734,22 @@ const server = http.createServer(async (req, res) => {
       });
 
       const targetChildId = reqUrl.searchParams.get('childId');
-      const activeChild = targetChildId
-        ? (tenantDb.children || []).find(c => c.id === targetChildId)
-        : ((tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0]);
+      const isApkRequest = reqUrl.searchParams.has('code');
+      
+      let activeChild = null;
+      if (targetChildId) {
+        activeChild = (tenantDb.children || []).find(c => c.id === targetChildId || (targetChildId === 'child_1' && c.id === 'child_user_1'));
+      }
+      
+      if (!activeChild) {
+        if (isApkRequest) {
+          // Solicitudes del celular APK: vincular al hijo dueño del teléfono actual (Mi Hijo)
+          activeChild = (tenantDb.children || []).find(c => c.id === 'child_user_1') || (tenantDb.children || [])[0];
+        } else {
+          // Solicitudes de la web de los padres: usar el hijo que están viendo en pantalla
+          activeChild = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0];
+        }
+      }
       const instantLockActive = activeChild ? !!activeChild.instantLockActive : false;
 
       return sendJson(res, 200, {
@@ -769,7 +782,15 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/child/telemetry' && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const { client, tenantDb } = resolveTenant(req, reqUrl, body);
-      const child = (tenantDb.children || []).find(c => c.id === (body.childId || tenantDb.activeChildId)) || (tenantDb.children || [])[0];
+      
+      const targetChildId = body.childId || reqUrl.searchParams.get('childId');
+      let child = null;
+      if (targetChildId) {
+        child = (tenantDb.children || []).find(c => c.id === targetChildId || (targetChildId === 'child_1' && c.id === 'child_user_1'));
+      }
+      if (!child) {
+        child = (tenantDb.children || []).find(c => c.id === 'child_user_1') || (tenantDb.children || [])[0];
+      }
       
       if (child) {
         if (!child.devices) child.devices = [];
