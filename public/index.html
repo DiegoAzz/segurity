@@ -537,7 +537,7 @@
     <!-- ================= TAB 4: APP SUPERVISION ================= -->
     <section id="content-apps" class="tab-content hidden space-y-6">
       
-      <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="p-5 rounded-2xl bg-[#161F30] border border-[#283548] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h2 class="text-lg font-display font-bold text-white flex items-center space-x-2">
             <i data-lucide="layout-grid" class="w-5 h-5 text-[#FFB800]"></i>
@@ -545,8 +545,34 @@
           </h2>
           <p class="text-xs text-slate-400 mt-0.5">Controla qué aplicaciones puede abrir tu hijo y asigna límites individuales de tiempo.</p>
         </div>
-        <div class="text-xs text-slate-400">
-          <span class="text-white font-bold" id="totalAppsCount">7</span> aplicaciones supervisadas
+
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+          <!-- Buscador de aplicaciones en tiempo real -->
+          <div class="relative min-w-[240px] sm:w-72">
+            <input 
+              type="text" 
+              id="appSearchInput" 
+              oninput="filterAppsSearch(this.value)" 
+              placeholder="Buscar aplicación (ej. YouTube, Amazon)..." 
+              class="w-full bg-[#0B1120] border border-[#283548] rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#FFB800] focus:ring-1 focus:ring-[#FFB800] transition"
+            />
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <button 
+              id="appSearchClearBtn" 
+              type="button" 
+              onclick="clearAppSearch()" 
+              class="hidden absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs font-bold p-0.5 cursor-pointer"
+              title="Borrar búsqueda"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="text-xs text-slate-400 whitespace-nowrap">
+            <span class="text-white font-bold" id="totalAppsCount">0</span> aplicaciones supervisadas
+          </div>
         </div>
       </div>
 
@@ -2000,7 +2026,25 @@
       }
     }
 
-    // Tab 4: App Supervision (Aislado por perfil de hijo)
+    let appSearchQuery = '';
+
+    function filterAppsSearch(query) {
+      appSearchQuery = (query || '').trim().toLowerCase();
+      const clearBtn = document.getElementById('appSearchClearBtn');
+      if (clearBtn) {
+        if (appSearchQuery) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+      renderAppsTab();
+    }
+
+    function clearAppSearch() {
+      const input = document.getElementById('appSearchInput');
+      if (input) input.value = '';
+      filterAppsSearch('');
+    }
+
+    // Tab 4: App Supervision (Aislado por perfil de hijo con Buscador en Tiempo Real)
     function renderAppsTab() {
       const child = getActiveChild();
       const grid = document.getElementById('appsListGrid');
@@ -2044,7 +2088,34 @@
         return;
       }
 
-      grid.innerHTML = childApps.map(app => {
+      // Filtrado por búsqueda en tiempo real
+      let displayApps = childApps;
+      if (appSearchQuery) {
+        displayApps = childApps.filter(app => {
+          const n = (app.name || '').toLowerCase();
+          const pkg = (app.packageName || '').toLowerCase();
+          const cat = (app.category || '').toLowerCase();
+          return n.includes(appSearchQuery) || pkg.includes(appSearchQuery) || cat.includes(appSearchQuery);
+        });
+      }
+
+      if (displayApps.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-14 text-center space-y-2.5 bg-[#161F30]/40 rounded-2xl border border-dashed border-[#283548]">
+            <div class="w-12 h-12 rounded-xl bg-slate-800 text-slate-400 mx-auto flex items-center justify-center text-xl">
+              🔍
+            </div>
+            <h4 class="text-sm font-bold text-white">No se encontró ninguna aplicación para "${appSearchQuery}"</h4>
+            <p class="text-xs text-slate-400">Intenta con otro término o limpia el buscador.</p>
+            <button type="button" onclick="clearAppSearch()" class="mt-1 px-3 py-1.5 bg-[#FFB800] text-black font-extrabold text-xs rounded-xl hover:bg-[#E5A600] transition cursor-pointer">
+              Limpiar Búsqueda
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = displayApps.map(app => {
         let statusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
         let statusText = 'Permitida';
         if (app.action === 'blocked') {
