@@ -336,9 +336,32 @@ function resolveTenant(req, reqUrl, body = {}) {
     matchedClient.data = createDefaultFamilyData(matchedClient.name + ' Hijo');
   }
 
+  const tenantDb = matchedClient ? matchedClient.data : db;
+
+  // Auto-sanitización de perfiles y aislamiento estricto de aplicaciones entre Mi Hijo y Vicky
+  if (tenantDb && Array.isArray(tenantDb.children)) {
+    const miHijo = tenantDb.children.find(c => c.id === 'child_user_1' || c.name.toLowerCase().includes('hijo'));
+    const vicky = tenantDb.children.find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vicky'));
+    
+    // Si Vicky no tiene sus aplicaciones asignadas o Mi Hijo tiene las 147 apps de ColorOS/OPPO:
+    if (vicky && (!vicky.monitoredApps || vicky.monitoredApps.length === 0)) {
+      const allApps = tenantDb.monitoredApps || miHijo?.monitoredApps || [];
+      const oppoApps = allApps.filter(a => a.packageName && (a.packageName.includes('coloros') || a.packageName.includes('oppo') || a.childId === 'child_vicky'));
+      if (oppoApps.length > 0 || allApps.length > 50) {
+        // Asignar todas las apps de OPPO a Vicky
+        vicky.monitoredApps = allApps.map(a => ({ ...a, childId: 'child_vicky' }));
+        // Si Mi Hijo tiene las 147 apps, restaurar a sus 35 apps nativas
+        if (miHijo && miHijo.monitoredApps && miHijo.monitoredApps.length > 50) {
+          miHijo.monitoredApps = miHijo.monitoredApps.filter(a => !a.packageName.includes('coloros') && !a.packageName.includes('oppo'));
+        }
+        saveDatabase(db);
+      }
+    }
+  }
+
   return {
     client: matchedClient,
-    tenantDb: matchedClient ? matchedClient.data : db,
+    tenantDb,
     session
   };
 }
@@ -1465,8 +1488,22 @@ const server = http.createServer(async (req, res) => {
       // Encontrar al hijo específico al que pertenecen estas apps
       const targetChildId = body.childId || reqUrl.searchParams.get('childId');
       let targetChild = null;
-      if (targetChildId) {
+
+      // 1. Si el dispositivo reporta ser OPPO o CPH2743 -> pertenece a Vicky
+      if (body.deviceName && (body.deviceName.includes('CPH2743') || body.deviceName.toLowerCase().includes('oppo'))) {
+        targetChild = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vicky'));
+      }
+      // 2. Si el dispositivo reporta ser CP20S o incar -> pertenece a Mi Hijo
+      else if (body.deviceName && (body.deviceName.includes('CP20S') || body.deviceName.toLowerCase().includes('incar'))) {
+        targetChild = (tenantDb.children || []).find(c => c.id === 'child_user_1' || c.name.toLowerCase().includes('hijo'));
+      }
+      // 3. Si viene childId explícito
+      else if (targetChildId) {
         targetChild = (tenantDb.children || []).find(c => c.id === targetChildId);
+      }
+      // 4. Si el deviceName coincide con algún dispositivo ya vinculado a un hijo
+      if (!targetChild && body.deviceName) {
+        targetChild = (tenantDb.children || []).find(c => (c.devices || []).some(d => d.name && d.name.toLowerCase().trim() === body.deviceName.toLowerCase().trim()));
       }
       if (!targetChild) {
         targetChild = (tenantDb.children || []).find(c => c.devices && c.devices.length > 0) || (tenantDb.children || [])[0];
@@ -1477,14 +1514,15 @@ const server = http.createServer(async (req, res) => {
       const colors = ['bg-red-600 text-white', 'bg-blue-600 text-white', 'bg-emerald-600 text-white', 'bg-indigo-600 text-white', 'bg-amber-500 text-black', 'bg-purple-600 text-white'];
 
       incomingApps.forEach((incApp, idx) => {
-        const existing = tenantDb.monitoredApps.find(a => a.packageName === incApp.packageName && (!a.childId || a.childId === targetChild?.id));
+        const existing = (targetChild?.monitoredApps || []).find(a => a.packageName === incApp.packageName) ||
+                         tenantDb.monitoredApps.find(a => a.packageName === incApp.packageName && (!a.childId || a.childId === targetChild?.id));
         if (existing) {
           existing.name = incApp.name || existing.name;
           if (targetChild) existing.childId = targetChild.id;
           updatedList.push(existing);
         } else {
           updatedList.push({
-            id: 'app_' + incApp.packageName.replace(/[^a-zA-Z0-9]/g, '_'),
+            id: 'app_' + (targetChild?.id === 'child_vicky' ? 'vicky_' : '') + incApp.packageName.replace(/[^a-zA-Z0-9]/g, '_'),
             childId: targetChild ? targetChild.id : undefined,
             name: incApp.name,
             packageName: incApp.packageName,
