@@ -37,6 +37,13 @@ public class AccessibilityMonitorService extends AccessibilityService {
     private SyncRunnable mSyncRunnable;
     private long mLastBlockTime = 0;
 
+    public static void updateBlockedPackages(Set<String> pkgs) {
+        if (pkgs != null) {
+            sBlockedPackages.clear();
+            sBlockedPackages.addAll(pkgs);
+        }
+    }
+
     public static boolean isPackageBlocked(String packageName) {
         if (packageName == null) return false;
         if (sBlockedPackages.contains(packageName)) return true;
@@ -122,6 +129,8 @@ public class AccessibilityMonitorService extends AccessibilityService {
         public void run() {
             android.content.SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
             String pairingCode = prefs.getString("pairing_code", "123456");
+            String myChildId = prefs.getString("selected_child_id", "");
+            String myDevice = Build.MANUFACTURER + " " + Build.MODEL;
 
             String[] servers = new String[] {
                 mService.mServerBaseUrl,
@@ -132,7 +141,14 @@ public class AccessibilityMonitorService extends AccessibilityService {
             for (String serverUrl : servers) {
                 if (serverUrl == null || serverUrl.isEmpty()) continue;
                 try {
-                    URL url = new URL(serverUrl + "/api/data?code=" + pairingCode);
+                    String reqUrl = serverUrl + "/api/data?code=" + pairingCode;
+                    if (!myChildId.isEmpty()) {
+                        reqUrl += "&childId=" + myChildId;
+                    }
+                    try {
+                        reqUrl += "&device=" + java.net.URLEncoder.encode(myDevice, "UTF-8");
+                    } catch (Exception ignored) {}
+                    URL url = new URL(reqUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
                     conn.setConnectTimeout(1800);

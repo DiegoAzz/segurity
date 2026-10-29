@@ -750,11 +750,19 @@ const server = http.createServer(async (req, res) => {
       // Si el teléfono envía su modelo de dispositivo real (ej: "OPPO CPH2743" o "incar CP20S")
       if (deviceParam) {
         let foundByDevice = (tenantDb.children || []).find(c => 
-          (c.devices || []).some(d => d.name && d.name.toLowerCase().trim() === deviceParam.toLowerCase().trim())
+          (c.devices || []).some(d => d.name && (
+            d.name.toLowerCase().trim() === deviceParam.toLowerCase().trim() ||
+            deviceParam.toLowerCase().includes(d.name.toLowerCase().trim()) ||
+            d.name.toLowerCase().includes(deviceParam.toLowerCase().trim())
+          ))
         );
-        // Si es el teléfono OPPO de la hija y aún no está asignado a Vicky, vincularlo directamente a Vicky
+        // Si es el teléfono OPPO de la hija
         if (!foundByDevice && (deviceParam.includes('CPH2743') || deviceParam.toLowerCase().includes('oppo'))) {
           foundByDevice = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vicky'));
+        }
+        // Si es el CP20S de Mi Hijo
+        if (!foundByDevice && (deviceParam.includes('CP20S') || deviceParam.toLowerCase().includes('incar'))) {
+          foundByDevice = (tenantDb.children || []).find(c => c.id === 'child_user_1' || c.name.toLowerCase().includes('hijo'));
         }
         if (foundByDevice) {
           activeChild = foundByDevice;
@@ -808,11 +816,30 @@ const server = http.createServer(async (req, res) => {
       // El teléfono del hijo NUNCA debe recibir información ni estados de bloqueo de otros hermanos.
       if (isApkRequest) {
         if (!activeChild) {
+          // Si no se pasó device o childId específico, devolver las aplicaciones bloqueadas globales de la familia
+          const fallbackBlocked = [];
+          (tenantDb.children || []).forEach(c => {
+            (c.monitoredApps || []).forEach(a => {
+              if (a.action === 'blocked' && a.packageName && !fallbackBlocked.includes(a.packageName)) {
+                fallbackBlocked.push(a.packageName);
+              }
+            });
+          });
+          (tenantDb.monitoredApps || []).forEach(a => {
+            if (a.action === 'blocked' && a.packageName && !fallbackBlocked.includes(a.packageName)) {
+              fallbackBlocked.push(a.packageName);
+            }
+          });
+
           return sendJson(res, 200, {
             ...tenantDb,
             instantLockActive: false,
             children: [],
-            unassigned: true
+            unassigned: true,
+            blockedPackages: fallbackBlocked,
+            blockedDomains,
+            blockedKeywords,
+            adultBlocked
           });
         }
 

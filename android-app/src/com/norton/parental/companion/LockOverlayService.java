@@ -397,6 +397,20 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                             lockStatus = false;
                         }
 
+                        // Sincronizar también la lista de aplicaciones bloqueadas con AccessibilityMonitorService
+                        try {
+                            org.json.JSONObject rootObj = new org.json.JSONObject(json);
+                            org.json.JSONArray bpArray = rootObj.optJSONArray("blockedPackages");
+                            if (bpArray != null) {
+                                java.util.Set<String> pkgs = new java.util.HashSet<String>();
+                                for (int i = 0; i < bpArray.length(); i++) {
+                                    String p = bpArray.optString(i, "").trim();
+                                    if (!p.isEmpty()) pkgs.add(p);
+                                }
+                                AccessibilityMonitorService.updateBlockedPackages(pkgs);
+                            }
+                        } catch (Exception ignored) {}
+
                         if (mService.mHandler != null) {
                             mService.mHandler.post(new StateUpdater(mService, lockStatus));
                         }
