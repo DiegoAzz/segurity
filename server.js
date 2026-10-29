@@ -1002,16 +1002,17 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { success: true, instantLockActive: targetState, allLocked: targetState, log: logEntry });
       }
 
-      const childId = body.childId || tenantDb.activeChildId;
+      const childId = body.childId || tenantDb.activeChildId || 'child_user_1';
       let child = (tenantDb.children || []).find(c => c.id === childId);
       if (!child && (tenantDb.children || []).length > 0) {
         child = tenantDb.children[0];
       }
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
 
-      child.instantLockActive = body.locked !== undefined ? body.locked : !child.instantLockActive;
+      // Modificar ESTRICTAMENTE el perfil de este hijo específico
+      child.instantLockActive = body.locked !== undefined ? !!body.locked : !child.instantLockActive;
       if (Array.isArray(db.children)) {
-        const rootChild = db.children.find(c => c.id === childId);
+        const rootChild = db.children.find(c => c.id === child.id);
         if (rootChild) rootChild.instantLockActive = child.instantLockActive;
       }
       
@@ -1030,7 +1031,8 @@ const server = http.createServer(async (req, res) => {
       tenantDb.activityLogs.unshift(logEntry);
 
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, instantLockActive: child.instantLockActive, child, log: logEntry });
+      console.log(`[BLOQUEO] Estado para ${child.name} (${child.id}): ${child.instantLockActive ? 'BLOQUEADO' : 'DESBLOQUEADO'}`);
+      return sendJson(res, 200, { success: true, childId: child.id, instantLockActive: child.instantLockActive, child, log: logEntry });
     }
 
     // Añadir tiempo extra

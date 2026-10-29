@@ -350,28 +350,39 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                         boolean lockStatus = false;
                         try {
                             org.json.JSONObject root = new org.json.JSONObject(json);
-                            // Bloqueo total familiar
-                            if (root.has("instantLockActive")) {
-                                lockStatus = root.optBoolean("instantLockActive", false);
-                            }
-                            // Bloqueo específico del hijo asignado a este celular
                             if (root.has("children")) {
                                 org.json.JSONArray children = root.optJSONArray("children");
                                 if (children != null && children.length() > 0) {
-                                    for (int i = 0; i < children.length(); i++) {
-                                        org.json.JSONObject c = children.optJSONObject(i);
-                                        if (c != null) {
-                                            String cId = c.optString("id", "");
-                                            if (!myChildId.isEmpty() && cId.equals(myChildId)) {
-                                                lockStatus = c.optBoolean("instantLockActive", false);
+                                    org.json.JSONObject targetChild = null;
+                                    // 1. Buscar coincidencia exacta por ID de hijo
+                                    if (!myChildId.isEmpty()) {
+                                        for (int i = 0; i < children.length(); i++) {
+                                            org.json.JSONObject c = children.optJSONObject(i);
+                                            if (c != null && myChildId.equals(c.optString("id", ""))) {
+                                                targetChild = c;
                                                 break;
                                             }
                                         }
                                     }
+                                    // 2. Si no tenía hijo asignado o no coincide, vincular automáticamente al primer perfil (Mi Hijo)
+                                    if (targetChild == null) {
+                                        targetChild = children.optJSONObject(0);
+                                        if (targetChild != null) {
+                                            String autoId = targetChild.optString("id", "child_user_1");
+                                            prefs.edit().putString("selected_child_id", autoId).apply();
+                                            myChildId = autoId;
+                                        }
+                                    }
+                                    if (targetChild != null) {
+                                        // El estado de bloqueo depende EXCLUSIVAMENTE de este hijo
+                                        lockStatus = targetChild.optBoolean("instantLockActive", false);
+                                    }
                                 }
+                            } else if (root.has("instantLockActive")) {
+                                lockStatus = root.optBoolean("instantLockActive", false);
                             }
                         } catch (Exception parseEx) {
-                            lockStatus = json.contains("\"instantLockActive\":true") || json.contains("\"instantLockActive\": true");
+                            lockStatus = false;
                         }
 
                         if (mService.mHandler != null) {

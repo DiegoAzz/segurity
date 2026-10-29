@@ -1223,7 +1223,8 @@
       }
 
       try {
-        const res = await authFetch('/api/data');
+        const currentChildId = localStorage.getItem('norton_active_child_id') || 'child_user_1';
+        const res = await authFetch(`/api/data?childId=${encodeURIComponent(currentChildId)}`);
         if (res.status === 401 || res.status === 403) {
           localStorage.removeItem('norton_token');
           window.location.href = '/login';
@@ -2810,7 +2811,8 @@
     // Auto-refresh data every 2.5s for real-time parent sync
     setInterval(async () => {
       try {
-        const res = await authFetch('/api/data');
+        const currentChildId = localStorage.getItem('norton_active_child_id') || 'child_user_1';
+        const res = await authFetch(`/api/data?childId=${encodeURIComponent(currentChildId)}`);
         if (res.ok) {
           const newData = await res.json();
           // Detect if a new pending request arrived
