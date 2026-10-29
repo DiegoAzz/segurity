@@ -129,10 +129,10 @@
 
         <!-- Client Account Badge & Logout -->
         <div class="flex items-center space-x-1.5 pl-2 border-l border-slate-700/60">
-          <div onclick="openChangePinModal()" class="hidden sm:flex flex-col text-right cursor-pointer hover:bg-slate-800/80 p-1.5 rounded-xl border border-transparent hover:border-amber-400/30 transition group" title="Haz clic para cambiar tu PIN familiar">
+          <div onclick="openChangePinModal()" class="hidden sm:flex flex-col text-right cursor-pointer hover:bg-slate-800/80 p-1.5 rounded-xl border border-transparent hover:border-amber-400/30 transition group" title="Haz clic para cambiar tu PIN familiar (Válido para todos tus hijos)">
             <span id="navClientName" class="text-xs font-bold text-white leading-tight">Familia</span>
             <span id="navClientCode" class="text-[10px] text-amber-400 font-extrabold leading-tight flex items-center justify-end space-x-1">
-              <span>PIN: 123456</span>
+              <span>PIN Familia: 123456</span>
               <span class="text-[9px] opacity-75 group-hover:scale-125 transition-transform">✏️</span>
             </span>
           </div>
@@ -215,7 +215,7 @@
           </div>
           <div>
             <h4 class="font-bold text-red-300">Pausa Instantánea Activa</h4>
-            <p class="text-sm text-red-200/80">Todos los dispositivos de este perfil están bloqueados ahora mismo.</p>
+            <p id="instantLockBannerText" class="text-sm text-red-200/80">Todos los dispositivos de este perfil están bloqueados ahora mismo.</p>
           </div>
         </div>
         <button onclick="toggleInstantLock(false)" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition">
@@ -1214,8 +1214,8 @@
       window.location.href = '/login';
     }
 
-    // Fetch initial data
-    async function loadData() {
+    // Fetch initial data with automatic retry for container redeployments
+    async function loadData(retryCount = 0) {
       const token = localStorage.getItem('norton_token');
       if (!token) {
         window.location.href = '/login';
@@ -1229,7 +1229,13 @@
           window.location.href = '/login';
           return;
         }
-        if (!res.ok) throw new Error('Error de conexión con el servidor');
+        // Si el servidor se está reiniciando (502, 503) reintentar silenciosamente
+        if ((res.status === 502 || res.status === 503 || !res.ok) && retryCount < 3) {
+          console.warn(`Servidor reiniciando (${res.status}), reintentando conexión (${retryCount + 1}/3)...`);
+          setTimeout(() => loadData(retryCount + 1), 1500);
+          return;
+        }
+        if (!res.ok) throw new Error('Error de conexión con el servidor: ' + res.status);
         appData = await res.json();
 
         // Actualizar datos del cliente en la barra superior
@@ -1237,7 +1243,7 @@
           const navName = document.getElementById('navClientName');
           const navCode = document.getElementById('navClientCode');
           if (navName) navName.innerText = appData.clientInfo.name || 'Familia';
-          if (navCode) navCode.innerText = `PIN: ${appData.clientInfo.pairingCode || '123456'}`;
+          if (navCode) navCode.innerHTML = `<span>PIN Familia: ${appData.clientInfo.pairingCode || '123456'}</span><span class="text-[9px] opacity-75 group-hover:scale-125 transition-transform">✏️</span>`;
         }
 
         // Revisar impersonación de Super Admin
@@ -1268,6 +1274,11 @@
 
         renderAll();
       } catch (err) {
+        if (retryCount < 3) {
+          console.warn(`Fallo temporal de red, reintentando (${retryCount + 1}/3)...`, err);
+          setTimeout(() => loadData(retryCount + 1), 1500);
+          return;
+        }
         console.error('Error cargando datos:', err);
         showToast('Error cargando los datos del servidor.', 'danger');
       }
@@ -1477,21 +1488,25 @@
       }
     }
 
-    // Instant Lock
+    // Instant Lock (Específico para el perfil de hijo seleccionado)
     function renderInstantLockState() {
       const child = getActiveChild();
       const isLocked = !!child.instantLockActive;
       const btn = document.getElementById('instantLockBtn');
       const text = document.getElementById('instantLockText');
       const banner = document.getElementById('instantLockBanner');
+      const bannerText = document.getElementById('instantLockBannerText');
+
+      const childName = child.name || 'Hijo';
 
       if (isLocked) {
-        btn.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-200 shadow-lg bg-red-600 hover:bg-red-500 text-white animate-pulse";
-        text.innerText = "🔓 Desbloquear Todo (Pausa Activa)";
+        btn.className = "flex items-center space-x-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 shadow-lg bg-red-600 hover:bg-red-500 text-white animate-pulse flex-shrink-0";
+        text.innerText = `🔓 Desbloquear a ${childName}`;
         if (banner) banner.classList.remove('hidden');
+        if (bannerText) bannerText.innerText = `Todos los dispositivos de ${childName} están bloqueados ahora mismo.`;
       } else {
-        btn.className = "flex items-center space-x-2 px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-200 shadow-lg bg-[#FFB800] hover:bg-[#E5A600] text-black";
-        text.innerText = "🛑 Bloquear Todo";
+        btn.className = "flex items-center space-x-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 shadow-lg bg-[#FFB800] hover:bg-[#E5A600] text-black flex-shrink-0";
+        text.innerText = `🛑 Bloquear a ${childName}`;
         if (banner) banner.classList.add('hidden');
       }
     }
@@ -1503,15 +1518,16 @@
         const res = await authFetch('/api/instant-lock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ all: true, locked: targetState })
+          body: JSON.stringify({ childId: child.id, locked: targetState })
         });
         const data = await res.json();
         if (data.success) {
-          appData.children.forEach(c => { c.instantLockActive = data.instantLockActive; });
+          const target = appData.children.find(c => c.id === child.id);
+          if (target) target.instantLockActive = data.instantLockActive;
           if (data.log) appData.activityLogs.unshift(data.log);
           renderAll();
           showToast(
-            targetState ? `🚨 ¡TODOS LOS DISPOSITIVOS Y CELULARES BLOQUEADOS!` : `Dispositivos desbloqueados y reanudados`,
+            targetState ? `🚨 ¡Dispositivos de ${child.name} BLOQUEADOS!` : `Dispositivos de ${child.name} reanudados`,
             targetState ? 'danger' : 'success'
           );
         }
@@ -2685,7 +2701,7 @@
           if (appData.clientInfo) appData.clientInfo.pairingCode = newPin;
           appData.pairingCode = newPin;
           const navCode = document.getElementById('navClientCode');
-          if (navCode) navCode.innerHTML = `<span>PIN: ${newPin}</span><span class="text-[9px] opacity-75">✏️</span>`;
+          if (navCode) navCode.innerHTML = `<span>PIN Familia: ${newPin}</span><span class="text-[9px] opacity-75">✏️</span>`;
           const qrCodeElem = document.getElementById('qrPairingCode');
           if (qrCodeElem) qrCodeElem.innerText = newPin;
           const qrStepCodeElem = document.getElementById('qrStepCode');

@@ -25,8 +25,5 @@ ENV NODE_ENV=production
 # Exponer el puerto de la aplicación
 EXPOSE 3080
 
-# Usuario sin privilegios por seguridad
-USER node
-
 # Comando de inicio
 CMD ["node", "server.js"]
