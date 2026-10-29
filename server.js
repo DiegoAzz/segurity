@@ -946,6 +946,9 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/instant-lock' && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const { tenantDb } = resolveTenant(req, reqUrl, body);
+      if (!tenantDb) {
+        return sendJson(res, 401, { error: 'No autorizado o familia no encontrada' });
+      }
       const lockAll = !!body.all;
 
       if (lockAll) {
@@ -971,7 +974,10 @@ const server = http.createServer(async (req, res) => {
       }
 
       const childId = body.childId || tenantDb.activeChildId;
-      const child = (tenantDb.children || []).find(c => c.id === childId);
+      let child = (tenantDb.children || []).find(c => c.id === childId);
+      if (!child && (tenantDb.children || []).length > 0) {
+        child = tenantDb.children[0];
+      }
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
 
       child.instantLockActive = body.locked !== undefined ? body.locked : !child.instantLockActive;

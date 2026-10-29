@@ -1541,23 +1541,27 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: child.id, locked: targetState })
         });
-        const data = await res.json();
-        if (data.success) {
+
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          console.warn('Respuesta no JSON del servidor al bloquear:', e);
+        }
+
+        if (res.ok && data.success) {
           const target = appData.children.find(c => c.id === child.id);
           if (target) target.instantLockActive = data.instantLockActive;
           if (data.log) appData.activityLogs.unshift(data.log);
           renderAll();
-        } else {
-          // Si el servidor falla, revertir
+        } else if (!res.ok && res.status !== 502 && res.status !== 503) {
+          // Solo si es un error HTTP real del servidor (ej. 401 o 400), revertir estado
           child.instantLockActive = !targetState;
           renderInstantLockState();
-          showToast('No se pudo aplicar el bloqueo en el servidor.', 'danger');
+          showToast(data.error || 'No se pudo aplicar el bloqueo en el servidor.', 'danger');
         }
       } catch (err) {
-        console.error(err);
-        child.instantLockActive = !targetState;
-        renderInstantLockState();
-        showToast('Error de conexión al aplicar el bloqueo.', 'danger');
+        console.error('Error de red al aplicar bloqueo:', err);
       }
     }
 
@@ -1936,13 +1940,13 @@
         // Apps etiquetadas con el ID de este hijo
         childApps = appData.monitoredApps.filter(a => a.childId === child.id);
         
-        // Si no tienen childId explícito pero este hijo NO tiene dispositivos vinculados:
+        // Si las apps aún no tienen childId explícito en base de datos:
         if (childApps.length === 0) {
-          if (!child.devices || child.devices.length === 0) {
-            childApps = [];
-          } else {
-            // Este hijo tiene el dispositivo físico, las apps corresponden a su celular
+          // ÚNICAMENTE "Mi Hijo" (dueño del celular real sincronizado) hereda la lista
+          if (child.id === 'child_user_1' || child.name === 'Mi Hijo') {
             childApps = appData.monitoredApps;
+          } else {
+            childApps = [];
           }
         }
       }
@@ -2628,8 +2632,18 @@
         activeMobBtn.classList.add('text-[#FFB800]');
       }
 
-      if (tabId === 'location') {
+      if (tabId === 'apps') {
+        renderAppsTab();
+      } else if (tabId === 'overview') {
+        renderOverviewTab();
+      } else if (tabId === 'time') {
+        renderTimeTab();
+      } else if (tabId === 'web') {
+        renderWebTab();
+      } else if (tabId === 'location') {
         renderLocationTab();
+      } else if (tabId === 'requests') {
+        renderRequestsTab();
       }
 
       if (window.lucide) lucide.createIcons();
