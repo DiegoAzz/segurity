@@ -1355,9 +1355,14 @@
                   const isCur = c.id === active.id;
                   const bg = isCur ? 'bg-amber-400/15 border border-amber-400/30 text-white font-bold' : 'text-slate-300 hover:bg-slate-800/80 hover:text-white border border-transparent';
                   const check = isCur ? '<span class="text-amber-400 text-xs font-black">✓</span>' : '';
+                  const deleteBtn = children.length > 1 ? `
+                    <button type="button" onclick="event.stopPropagation(); deleteChildProfile('${c.id}', '${c.name.replace(/'/g, "\\'")}');" class="p-1 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition ml-1" title="Eliminar este perfil de hijo">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                  ` : '';
                   return `
-                    <button type="button" onclick="selectChild('${c.id}'); closeAllChildDropdowns();" class="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition cursor-pointer ${bg}">
-                      <div class="flex items-center space-x-2.5 text-left">
+                    <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition ${bg}">
+                      <button type="button" onclick="selectChild('${c.id}'); closeAllChildDropdowns();" class="flex-1 flex items-center space-x-2.5 text-left cursor-pointer">
                         <span class="text-lg">${c.avatar || '👦'}</span>
                         <div>
                           <div class="font-bold flex items-center space-x-1">
@@ -1366,9 +1371,12 @@
                           </div>
                           <div class="text-[10px] text-slate-400">Límite: ${c.dailyLimitMinutes || 120} min/día</div>
                         </div>
+                      </button>
+                      <div class="flex items-center space-x-1">
+                        ${check}
+                        ${deleteBtn}
                       </div>
-                      ${check}
-                    </button>
+                    </div>
                   `;
                 }).join('')}
               </div>
@@ -1498,6 +1506,64 @@
         });
       } catch (e) {
         console.error(e);
+      }
+    }
+
+    async function unlinkDevice(deviceId) {
+      const child = getActiveChild();
+      if (!confirm(`¿Deseas desvincular este dispositivo del perfil de ${child.name}? Se borrarán las aplicaciones sincronizadas y el estado de supervisión.`)) {
+        return;
+      }
+      try {
+        const res = await authFetch('/api/device/unlink', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId: child.id, deviceId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          child.devices = [];
+          child.monitoredApps = [];
+          child.currentLocation = null;
+          if (Array.isArray(appData.monitoredApps)) {
+            appData.monitoredApps = appData.monitoredApps.filter(a => a.childId !== child.id);
+          }
+          if (data.log) appData.activityLogs.unshift(data.log);
+          renderAll();
+          showToast('✅ Dispositivo desvinculado con éxito.', 'success');
+        } else {
+          showToast(data.error || 'No se pudo desvincular el dispositivo.', 'danger');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error de conexión al desvincular dispositivo.', 'danger');
+      }
+    }
+
+    async function deleteChildProfile(childId, childName) {
+      if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente el perfil de "${childName}"? Se borrarán sus aplicaciones, límites y alertas.`)) {
+        return;
+      }
+      try {
+        const res = await authFetch('/api/children/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ childId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          appData.children = data.children;
+          localStorage.setItem('norton_active_child_id', data.activeChildId);
+          appData.activeChildId = data.activeChildId;
+          closeAllChildDropdowns();
+          renderAll(false);
+          showToast(`✅ Perfil de ${childName} eliminado con éxito.`, 'success');
+        } else {
+          showToast(data.error || 'No se pudo eliminar el perfil.', 'danger');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error de conexión al eliminar perfil.', 'danger');
       }
     }
 
@@ -1703,22 +1769,28 @@
         `;
       } else {
         devicesContainer.innerHTML = child.devices.map(dev => `
-          <div class="p-3 rounded-xl bg-slate-800/60 border border-emerald-500/30 flex items-center justify-between">
+          <div class="p-3.5 rounded-xl bg-slate-800/60 border border-emerald-500/30 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-              <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+              <div class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg">
                 📱
               </div>
               <div>
                 <div class="text-xs font-black text-white">${dev.name}</div>
-                <div class="text-[10px] text-emerald-400 font-semibold">${dev.os}</div>
+                <div class="text-[10px] text-emerald-400 font-semibold">${dev.os || 'Android'}</div>
               </div>
             </div>
-            <div class="text-right">
-              <div class="text-[11px] font-bold text-emerald-400 flex items-center justify-end space-x-1">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>En línea</span>
+            <div class="flex items-center space-x-3">
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-emerald-400 flex items-center justify-end space-x-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>En línea</span>
+                </div>
+                <div class="text-[10px] text-slate-300 font-semibold">Batería: ${dev.batteryLevel}%</div>
               </div>
-              <div class="text-[10px] text-slate-300 font-semibold">Batería: ${dev.batteryLevel}%</div>
+              <button type="button" onclick="unlinkDevice('${dev.id || 'primary_phone'}')" class="px-2.5 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 border border-red-500/40 transition text-[11px] font-bold flex items-center space-x-1 cursor-pointer" title="Desvincular este celular">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                <span>Desvincular</span>
+              </button>
             </div>
           </div>
         `).join('');

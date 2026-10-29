@@ -971,6 +971,111 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 404, { error: 'Hijo no encontrado' });
     }
 
+    // Desvincular / Eliminar dispositivo de un hijo
+    if (pathname === '/api/device/unlink' && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { tenantDb } = resolveTenant(req, reqUrl, body);
+      if (!tenantDb) {
+        return sendJson(res, 401, { error: 'No autorizado o familia no encontrada' });
+      }
+      const childId = body.childId || tenantDb.activeChildId;
+      const child = (tenantDb.children || []).find(c => c.id === childId);
+      if (!child) {
+        return sendJson(res, 404, { error: 'Hijo no encontrado' });
+      }
+
+      const deviceId = body.deviceId;
+      if (deviceId) {
+        child.devices = (child.devices || []).filter(d => d.id !== deviceId);
+      } else {
+        child.devices = [];
+      }
+
+      // Reiniciar estado asociado al dispositivo eliminado
+      if (!child.devices || child.devices.length === 0) {
+        child.devices = [];
+        child.monitoredApps = [];
+        child.currentLocation = null;
+        child.instantLockActive = false;
+        if (Array.isArray(tenantDb.monitoredApps)) {
+          tenantDb.monitoredApps = tenantDb.monitoredApps.filter(a => a.childId !== child.id);
+        }
+      }
+
+      if (Array.isArray(db.children)) {
+        const rootChild = db.children.find(c => c.id === child.id);
+        if (rootChild) {
+          rootChild.devices = child.devices;
+          rootChild.monitoredApps = child.monitoredApps;
+          rootChild.currentLocation = child.currentLocation;
+          rootChild.instantLockActive = child.instantLockActive;
+        }
+      }
+
+      const logEntry = {
+        id: 'log_' + Date.now(),
+        childId: child.id,
+        type: 'device',
+        title: '📱 Dispositivo Desvinculado',
+        details: `Se desvinculó y eliminó el dispositivo del perfil de ${child.name}.`,
+        status: 'warning',
+        timestamp: 'Hoy, ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+      };
+      if (!tenantDb.activityLogs) tenantDb.activityLogs = [];
+      tenantDb.activityLogs.unshift(logEntry);
+
+      saveDatabase(db);
+      console.log(`[DISPOSITIVO] Dispositivo desvinculado con éxito para ${child.name} (${child.id})`);
+      return sendJson(res, 200, { success: true, message: 'Dispositivo desvinculado con éxito', child, log: logEntry });
+    }
+
+    // Eliminar perfil de hijo
+    if (pathname === '/api/children/delete' && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { tenantDb } = resolveTenant(req, reqUrl, body);
+      if (!tenantDb) {
+        return sendJson(res, 401, { error: 'No autorizado o familia no encontrada' });
+      }
+      const childId = body.childId;
+      if (!childId) {
+        return sendJson(res, 400, { error: 'Se requiere el ID del hijo a eliminar' });
+      }
+
+      if ((tenantDb.children || []).length <= 1) {
+        return sendJson(res, 400, { error: 'No puedes eliminar el único hijo registrado. La familia debe tener al menos un perfil.' });
+      }
+
+      const deletedChild = (tenantDb.children || []).find(c => c.id === childId);
+      tenantDb.children = (tenantDb.children || []).filter(c => c.id !== childId);
+      if (Array.isArray(db.children)) {
+        db.children = db.children.filter(c => c.id !== childId);
+      }
+
+      if (Array.isArray(tenantDb.monitoredApps)) {
+        tenantDb.monitoredApps = tenantDb.monitoredApps.filter(a => a.childId !== childId);
+      }
+      if (Array.isArray(tenantDb.requests)) {
+        tenantDb.requests = tenantDb.requests.filter(r => r.childId !== childId);
+      }
+      if (Array.isArray(tenantDb.activityLogs)) {
+        tenantDb.activityLogs = tenantDb.activityLogs.filter(l => l.childId !== childId);
+      }
+
+      if (tenantDb.activeChildId === childId) {
+        tenantDb.activeChildId = tenantDb.children[0].id;
+        db.activeChildId = tenantDb.children[0].id;
+      }
+
+      saveDatabase(db);
+      console.log(`[HIJOS] Perfil ${childId} (${deletedChild ? deletedChild.name : ''}) eliminado con éxito.`);
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Perfil de hijo eliminado con éxito',
+        activeChildId: tenantDb.activeChildId,
+        children: tenantDb.children
+      });
+    }
+
     // Pausa instantánea / Bloqueo de dispositivo
     if (pathname === '/api/instant-lock' && req.method === 'POST') {
       const body = await parseRequestBody(req);
