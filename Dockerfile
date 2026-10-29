@@ -22,6 +22,9 @@ RUN mkdir -p /app/data && chown -R node:node /app && chmod -R 775 /app/data
 ENV PORT=3080
 ENV NODE_ENV=production
 
+# Volumen persistente para base de datos SQLite/JSON
+VOLUME ["/app/data"]
+
 # Exponer el puerto de la aplicación
 EXPOSE 3080
 

@@ -743,13 +743,14 @@ const server = http.createServer(async (req, res) => {
       
       if (!activeChild) {
         if (isApkRequest) {
-          // Solicitudes del celular APK: vincular al hijo dueño del teléfono actual (Mi Hijo)
-          activeChild = (tenantDb.children || []).find(c => c.id === 'child_user_1') || (tenantDb.children || [])[0];
+          // Solicitudes del celular APK: buscar primero el hijo que tenga registrado este dispositivo
+          activeChild = (tenantDb.children || []).find(c => (c.devices || []).length > 0) || (tenantDb.children || [])[0];
         } else {
           // Solicitudes de la web de los padres: usar el hijo que están viendo en pantalla
           activeChild = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0];
         }
       }
+      // El estado instantLockActive en la raíz de la respuesta responde únicamente al hijo evaluado
       const instantLockActive = activeChild ? !!activeChild.instantLockActive : false;
 
       return sendJson(res, 200, {
@@ -797,10 +798,12 @@ const server = http.createServer(async (req, res) => {
 
         let dev = child.devices.find(d => d.type === 'smartphone');
         
-        if (!dev) {
+        // Solo registrar un nuevo dispositivo si la telemetría proviene de un teléfono real
+        const isFromRealApk = body.deviceName && body.deviceName !== 'Smartphone Android';
+        if (!dev && isFromRealApk) {
           dev = {
-            id: 'primary_phone',
-            name: body.deviceName || 'Smartphone Android',
+            id: 'real_phone_' + Date.now(),
+            name: body.deviceName,
             type: 'smartphone',
             os: body.os || 'Android',
             batteryLevel: (body.batteryLevel !== undefined && body.batteryLevel !== null) ? Math.round(body.batteryLevel) : 85,
@@ -808,8 +811,8 @@ const server = http.createServer(async (req, res) => {
             lastSeen: 'Ahora mismo'
           };
           child.devices = [dev];
-        } else {
-          if (body.deviceName) dev.name = body.deviceName;
+        } else if (dev) {
+          if (body.deviceName && isFromRealApk) dev.name = body.deviceName;
           if (body.os) dev.os = body.os;
           if (body.batteryLevel !== undefined && body.batteryLevel !== null) dev.batteryLevel = Math.round(body.batteryLevel);
           dev.isOnline = true;
