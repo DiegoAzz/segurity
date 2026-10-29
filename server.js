@@ -1132,18 +1132,30 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: 'Lista de aplicaciones vacía' });
       }
 
+      // Encontrar al hijo específico al que pertenecen estas apps
+      const targetChildId = body.childId || reqUrl.searchParams.get('childId');
+      let targetChild = null;
+      if (targetChildId) {
+        targetChild = (tenantDb.children || []).find(c => c.id === targetChildId);
+      }
+      if (!targetChild) {
+        targetChild = (tenantDb.children || []).find(c => c.devices && c.devices.length > 0) || (tenantDb.children || [])[0];
+      }
+
       if (!tenantDb.monitoredApps) tenantDb.monitoredApps = [];
       const updatedList = [];
       const colors = ['bg-red-600 text-white', 'bg-blue-600 text-white', 'bg-emerald-600 text-white', 'bg-indigo-600 text-white', 'bg-amber-500 text-black', 'bg-purple-600 text-white'];
 
       incomingApps.forEach((incApp, idx) => {
-        const existing = tenantDb.monitoredApps.find(a => a.packageName === incApp.packageName);
+        const existing = tenantDb.monitoredApps.find(a => a.packageName === incApp.packageName && (!a.childId || a.childId === targetChild?.id));
         if (existing) {
           existing.name = incApp.name || existing.name;
+          if (targetChild) existing.childId = targetChild.id;
           updatedList.push(existing);
         } else {
           updatedList.push({
             id: 'app_' + incApp.packageName.replace(/[^a-zA-Z0-9]/g, '_'),
+            childId: targetChild ? targetChild.id : undefined,
             name: incApp.name,
             packageName: incApp.packageName,
             iconColor: colors[idx % colors.length],
@@ -1155,9 +1167,12 @@ const server = http.createServer(async (req, res) => {
         }
       });
 
+      if (targetChild) {
+        targetChild.monitoredApps = updatedList;
+      }
       tenantDb.monitoredApps = updatedList;
       saveDatabase(db);
-      console.log(`[APPS] Sincronizadas ${updatedList.length} aplicaciones reales.`);
+      console.log(`[APPS] Sincronizadas ${updatedList.length} aplicaciones para ${targetChild ? targetChild.name : 'hijo'}.`);
       return sendJson(res, 200, { success: true, count: updatedList.length, monitoredApps: tenantDb.monitoredApps });
     }
 

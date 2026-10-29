@@ -1238,6 +1238,12 @@
         if (!res.ok) throw new Error('Error de conexión con el servidor: ' + res.status);
         appData = await res.json();
 
+        // Preservar la selección del hijo guardada en este navegador
+        const savedChildId = localStorage.getItem('norton_active_child_id');
+        if (savedChildId && (appData.children || []).some(c => c.id === savedChildId)) {
+          appData.activeChildId = savedChildId;
+        }
+
         // Actualizar datos del cliente en la barra superior
         if (appData.clientInfo) {
           const navName = document.getElementById('navClientName');
@@ -1315,6 +1321,9 @@
       const containerDesktop = document.getElementById('childSelectorContainer');
       const containerMobile = document.getElementById('childSelectorMobile');
       const children = appData.children || [];
+
+      const wasDesktopOpen = document.getElementById('childDropdownMenuDesktop') && !document.getElementById('childDropdownMenuDesktop').classList.contains('hidden');
+      const wasMobileOpen = document.getElementById('childDropdownMenuMobile') && !document.getElementById('childDropdownMenuMobile').classList.contains('hidden');
 
       const makeDropdownHtml = (isMobile = false) => {
         const menuId = isMobile ? 'childDropdownMenuMobile' : 'childDropdownMenuDesktop';
@@ -1914,12 +1923,51 @@
       }
     }
 
-    // Tab 4: App Supervision
+    // Tab 4: App Supervision (Aislado por perfil de hijo)
     function renderAppsTab() {
+      const child = getActiveChild();
       const grid = document.getElementById('appsListGrid');
-      document.getElementById('totalAppsCount').innerText = appData.monitoredApps.length;
 
-      grid.innerHTML = appData.monitoredApps.map(app => {
+      // Filtrar aplicaciones pertenecientes a este hijo específico
+      let childApps = [];
+      if (child.monitoredApps && Array.isArray(child.monitoredApps) && child.monitoredApps.length > 0) {
+        childApps = child.monitoredApps;
+      } else if (Array.isArray(appData.monitoredApps)) {
+        // Apps etiquetadas con el ID de este hijo
+        childApps = appData.monitoredApps.filter(a => a.childId === child.id);
+        
+        // Si no tienen childId explícito pero este hijo NO tiene dispositivos vinculados:
+        if (childApps.length === 0) {
+          if (!child.devices || child.devices.length === 0) {
+            childApps = [];
+          } else {
+            // Este hijo tiene el dispositivo físico, las apps corresponden a su celular
+            childApps = appData.monitoredApps;
+          }
+        }
+      }
+
+      const totalCountElem = document.getElementById('totalAppsCount');
+      if (totalCountElem) totalCountElem.innerText = childApps.length;
+
+      if (childApps.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center space-y-3 bg-[#161F30]/60 rounded-2xl border border-dashed border-[#283548]">
+            <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 mx-auto flex items-center justify-center text-2xl font-bold">
+              📱
+            </div>
+            <h4 class="text-base font-bold text-white">No hay aplicaciones sincronizadas para ${child.name || 'este perfil'}</h4>
+            <p class="text-xs text-slate-400 max-w-md mx-auto">
+              ${(child.devices && child.devices.length > 0)
+                ? 'El celular está conectado pero aún no ha enviado el reporte de aplicaciones instaladas.'
+                : `Instala la aplicación en el celular de ${child.name || 'tu hijo'} y pon el PIN familiar para supervisar sus aplicaciones.`}
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = childApps.map(app => {
         let statusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
         let statusText = 'Permitida';
         if (app.action === 'blocked') {
