@@ -36,11 +36,15 @@ public class AccessibilityMonitorService extends AccessibilityService {
     public String mServerBaseUrl = "https://segurity.appzplay.online";
     private SyncRunnable mSyncRunnable;
     private long mLastBlockTime = 0;
+    private static AccessibilityMonitorService sInstance = null;
 
     public static void updateBlockedPackages(Set<String> pkgs) {
         if (pkgs != null) {
             sBlockedPackages.clear();
             sBlockedPackages.addAll(pkgs);
+            if (sInstance != null && sInstance.mHandler != null) {
+                sInstance.mHandler.post(new CheckForegroundRunnable(sInstance));
+            }
         }
     }
 
@@ -93,11 +97,27 @@ public class AccessibilityMonitorService extends AccessibilityService {
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
+        sInstance = this;
         mHandler = new Handler(Looper.getMainLooper());
         ensureLockServiceRunning();
         checkAndReportReboot();
         mSyncRunnable = new SyncRunnable(this);
         mHandler.post(mSyncRunnable);
+    }
+
+    public static class CheckForegroundRunnable implements Runnable {
+        private final AccessibilityMonitorService mService;
+
+        public CheckForegroundRunnable(AccessibilityMonitorService service) {
+            mService = service;
+        }
+
+        @Override
+        public void run() {
+            if (mService != null) {
+                mService.checkCurrentForegroundApp();
+            }
+        }
     }
 
     public static class SyncRunnable implements Runnable {
@@ -110,9 +130,10 @@ public class AccessibilityMonitorService extends AccessibilityService {
         @Override
         public void run() {
             if (mService != null) {
+                mService.checkCurrentForegroundApp();
                 new FetchRulesThread(mService).start();
                 if (mService.mHandler != null) {
-                    mService.mHandler.postDelayed(this, 2000);
+                    mService.mHandler.postDelayed(this, 1000);
                 }
             }
         }
@@ -164,57 +185,44 @@ public class AccessibilityMonitorService extends AccessibilityService {
                         reader.close();
                         String json = sb.toString();
 
-                        // 1. Bloqueo de aplicaciones
-                        int idx = json.indexOf("\"blockedPackages\":[");
-                        if (idx != -1) {
-                            int endIdx = json.indexOf("]", idx);
-                            if (endIdx != -1) {
-                                String arrayStr = json.substring(idx + 19, endIdx);
-                                String[] pkgs = arrayStr.replace("\"", "").split(",");
+                        // Parseo estructurado con org.json para máxima precisión
+                        try {
+                            org.json.JSONObject rootObj = new org.json.JSONObject(json);
+                            org.json.JSONArray bpArray = rootObj.optJSONArray("blockedPackages");
+                            if (bpArray != null) {
                                 sBlockedPackages.clear();
-                                for (String p : pkgs) {
-                                    String clean = p.trim();
-                                    if (!clean.isEmpty()) sBlockedPackages.add(clean);
+                                for (int i = 0; i < bpArray.length(); i++) {
+                                    String p = bpArray.optString(i, "").trim();
+                                    if (!p.isEmpty()) sBlockedPackages.add(p);
+                                }
+                                // Verificar inmediatamente si la app que el niño tiene abierta en este segundo acaba de ser bloqueada
+                                if (mService != null && mService.mHandler != null) {
+                                    mService.mHandler.post(new CheckForegroundRunnable(mService));
                                 }
                             }
-                        }
 
-                        // 2. Bloqueo de dominios específicos
-                        int dIdx = json.indexOf("\"blockedDomains\":[");
-                        if (dIdx != -1) {
-                            int endDIdx = json.indexOf("]", dIdx);
-                            if (endDIdx != -1) {
-                                String arrayStr = json.substring(dIdx + 18, endDIdx);
-                                String[] domains = arrayStr.replace("\"", "").split(",");
+                            org.json.JSONArray bdArray = rootObj.optJSONArray("blockedDomains");
+                            if (bdArray != null) {
                                 sBlockedDomains.clear();
-                                for (String d : domains) {
-                                    String clean = d.trim().toLowerCase();
-                                    if (!clean.isEmpty()) sBlockedDomains.add(clean);
+                                for (int i = 0; i < bdArray.length(); i++) {
+                                    String d = bdArray.optString(i, "").trim().toLowerCase();
+                                    if (!d.isEmpty()) sBlockedDomains.add(d);
                                 }
                             }
-                        }
 
-                        // 3. Bloqueo de adultos
-                        int aIdx = json.indexOf("\"adultBlocked\":");
-                        if (aIdx != -1) {
-                            String sub = json.substring(aIdx + 15, Math.min(aIdx + 20, json.length()));
-                            sAdultBlocked = sub.startsWith("true");
-                        }
+                            if (rootObj.has("adultBlocked")) {
+                                sAdultBlocked = rootObj.optBoolean("adultBlocked", true);
+                            }
 
-                        // 4. Palabras clave
-                        int kIdx = json.indexOf("\"blockedKeywords\":[");
-                        if (kIdx != -1) {
-                            int endKIdx = json.indexOf("]", kIdx);
-                            if (endKIdx != -1) {
-                                String arrayStr = json.substring(kIdx + 19, endKIdx);
-                                String[] kws = arrayStr.replace("\"", "").split(",");
+                            org.json.JSONArray bkArray = rootObj.optJSONArray("blockedKeywords");
+                            if (bkArray != null) {
                                 sBlockedKeywords.clear();
-                                for (String k : kws) {
-                                    String clean = k.trim().toLowerCase();
-                                    if (!clean.isEmpty()) sBlockedKeywords.add(clean);
+                                for (int i = 0; i < bkArray.length(); i++) {
+                                    String k = bkArray.optString(i, "").trim().toLowerCase();
+                                    if (!k.isEmpty()) sBlockedKeywords.add(k);
                                 }
                             }
-                        }
+                        } catch (Exception parseEx) {}
 
                         conn.disconnect();
                         break;
@@ -367,18 +375,8 @@ public class AccessibilityMonitorService extends AccessibilityService {
             return;
         }
 
-        // 2. Si la aplicación específica (ej. YouTube, TikTok) está BLOQUEADA
-        if (isPackageBlocked(pkg)) {
-            performGlobalAction(GLOBAL_ACTION_HOME);
-
-            Intent lockIntent = new Intent(this, LockOverlayService.class);
-            lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
-            lockIntent.putExtra("blocked_reason", "🚫 Aplicación Bloqueada por Control Parental");
-            startService(lockIntent);
-
-            if (mHandler != null) {
-                mHandler.post(new ToastRunnable(this, "🚫 Esta aplicación está bloqueada por tus padres."));
-            }
+        // 2. Si la aplicación específica (ej. YouTube, TikTok, juegos) está BLOQUEADA
+        if (handleBlockedForegroundApp(pkg)) {
             return;
         }
 
@@ -563,9 +561,86 @@ public class AccessibilityMonitorService extends AccessibilityService {
     public void onInterrupt() {
     }
 
+    public void checkCurrentForegroundApp() {
+        try {
+            // 1. Detección por nodo raíz de la ventana activa en primer plano
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root != null) {
+                try {
+                    CharSequence pkgSeq = root.getPackageName();
+                    if (pkgSeq != null && handleBlockedForegroundApp(pkgSeq.toString())) {
+                        return;
+                    }
+                } finally {
+                    try { root.recycle(); } catch (Exception ignored) {}
+                }
+            }
+
+            // 2. Detección por ventanas en pantalla (juegos fullscreen, SurfaceViews, videos)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                try {
+                    List<android.view.accessibility.AccessibilityWindowInfo> windows = getWindows();
+                    if (windows != null) {
+                        for (android.view.accessibility.AccessibilityWindowInfo w : windows) {
+                            if (w != null && (w.isFocused() || w.getType() == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION)) {
+                                AccessibilityNodeInfo winRoot = w.getRoot();
+                                if (winRoot != null) {
+                                    try {
+                                        CharSequence wp = winRoot.getPackageName();
+                                        if (wp != null && handleBlockedForegroundApp(wp.toString())) {
+                                            return;
+                                        }
+                                    } finally {
+                                        try { winRoot.recycle(); } catch (Exception ignored) {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    public boolean handleBlockedForegroundApp(String currentPkg) {
+        if (currentPkg == null || currentPkg.isEmpty()) return false;
+        if (currentPkg.equals(getPackageName())
+                || currentPkg.equals("com.android.systemui")
+                || currentPkg.contains("launcher")
+                || currentPkg.contains("trebuchet")) {
+            return false;
+        }
+
+        if (isPackageBlocked(currentPkg)) {
+            // 1. Expulsar de inmediato al HOME
+            performGlobalAction(GLOBAL_ACTION_HOME);
+
+            // 2. Lanzar LockActivity al frente para cubrir completamente la app bloqueada
+            try {
+                Intent lockActIntent = new Intent(this, LockActivity.class);
+                lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                lockActIntent.putExtra("blocked_reason", "🚫 Aplicación Bloqueada por Control Parental");
+                startActivity(lockActIntent);
+            } catch (Exception ignored) {}
+
+            // 3. Desplegar overlay
+            Intent lockIntent = new Intent(this, LockOverlayService.class);
+            lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
+            lockIntent.putExtra("blocked_reason", "🚫 Aplicación Bloqueada por Control Parental");
+            startService(lockIntent);
+
+            if (mHandler != null) {
+                mHandler.post(new ToastRunnable(this, "🚫 Esta aplicación ha sido bloqueada por tus padres en tiempo real."));
+            }
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public void onDestroy() {
         super.onDestroy();
+        sInstance = null;
         if (mHandler != null && mSyncRunnable != null) {
             mHandler.removeCallbacks(mSyncRunnable);
         }

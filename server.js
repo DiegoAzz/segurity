@@ -1563,25 +1563,29 @@ const server = http.createServer(async (req, res) => {
       });
 
       if (targetChild) {
+        const prevCount = (targetChild.monitoredApps || []).length;
         targetChild.monitoredApps = updatedList;
 
-        const devName = body.deviceName || 'Smartphone Android';
-        const logEntry = {
-          id: 'log_' + Date.now(),
-          childId: targetChild.id,
-          type: 'device',
-          title: '🎉 ¡Celular y Aplicaciones Sincronizadas!',
-          details: `Se activaron ${updatedList.length} aplicaciones del celular ${devName} para el perfil de ${targetChild.name}.`,
-          status: 'allowed',
-          timestamp: 'Hoy, ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-        };
-        if (!tenantDb.activityLogs) tenantDb.activityLogs = [];
-        tenantDb.activityLogs.unshift(logEntry);
+        // Solo registrar en actividad si hubo cambio en la cantidad de aplicaciones
+        if (prevCount === 0 || Math.abs(prevCount - updatedList.length) > 0) {
+          const devName = body.deviceName || 'Smartphone Android';
+          const logEntry = {
+            id: 'log_' + Date.now(),
+            childId: targetChild.id,
+            type: 'device',
+            title: '🎉 ¡Celular y Aplicaciones Sincronizadas!',
+            details: `Se activaron ${updatedList.length} aplicaciones del celular ${devName} para el perfil de ${targetChild.name}.`,
+            status: 'allowed',
+            timestamp: 'Hoy, ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+          };
+          if (!tenantDb.activityLogs) tenantDb.activityLogs = [];
+          tenantDb.activityLogs.unshift(logEntry);
+        }
       }
-      tenantDb.monitoredApps = updatedList;
+
       saveDatabase(db);
       console.log(`[APPS] Sincronizadas ${updatedList.length} aplicaciones para ${targetChild ? targetChild.name : 'hijo'}.`);
-      return sendJson(res, 200, { success: true, count: updatedList.length, childId: targetChild ? targetChild.id : undefined, monitoredApps: updatedList });
+      return sendJson(res, 200, { success: true, count: updatedList.length, childId: targetChild ? targetChild.id : undefined });
     }
 
     // Responder solicitud de un hijo
