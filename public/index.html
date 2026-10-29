@@ -1521,15 +1521,21 @@
       localStorage.setItem('norton_active_child_id', childId);
       if (appData) appData.activeChildId = childId;
       closeAllChildDropdowns();
+      
+      // RENDERIZADO INMEDIATO (0 ms - Reactividad Total)
       renderAll(false);
-      showToast(`Perfil cambiado a ${getActiveChild().name}`, 'info');
+      const activeChild = getActiveChild();
+      showToast(`Perfil cambiado a ${activeChild.name || 'Hijo'}`, 'info');
 
+      // Actualizar datos frescos del perfil seleccionado de inmediato sin demoras
       try {
-        await authFetch('/api/children/select', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ childId })
-        });
+        const res = await authFetch(`/api/data?childId=${encodeURIComponent(childId)}`);
+        if (res.ok) {
+          const freshData = await res.json();
+          freshData.activeChildId = childId;
+          appData = freshData;
+          renderAll(false);
+        }
       } catch (e) {
         console.error(e);
       }
@@ -1954,15 +1960,21 @@
 
     async function toggleSafeSearch(checked) {
       const child = getActiveChild();
+      const prev = child.safeSearchEnabled;
+      
+      // Actualización optimista inmediata (0 ms)
+      child.safeSearchEnabled = checked;
+      showToast(checked ? 'Búsqueda Segura activada' : 'Búsqueda Segura desactivada', 'info');
+
       try {
         const res = await authFetch('/api/web/safesearch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId: child.id, enabled: checked })
         });
-        if (res.ok) {
-          child.safeSearchEnabled = checked;
-          showToast(checked ? 'Búsqueda Segura activada' : 'Búsqueda Segura desactivada', 'info');
+        if (!res.ok) {
+          child.safeSearchEnabled = prev;
+          renderWebTab();
         }
       } catch (err) {
         console.error(err);
@@ -1970,18 +1982,27 @@
     }
 
     async function updateWebCategory(categoryId, action) {
+      const cat = (appData.webCategories || []).find(c => c.id === categoryId);
+      if (!cat) return;
+      const prevAction = cat.action;
+
+      // ACTUALIZACIÓN OPTIMISTA INMEDIATA (0 ms - Reactividad Total)
+      cat.action = action;
+      renderWebTab();
+      renderOverviewTab();
+      showToast(`Regla actualizada: ${cat.name} -> ${action}`, 'success');
+
       try {
         const res = await authFetch('/api/web/category', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ categoryId, action })
         });
-        if (res.ok) {
-          const cat = appData.webCategories.find(c => c.id === categoryId);
-          if (cat) cat.action = action;
+        if (!res.ok) {
+          cat.action = prevAction;
           renderWebTab();
           renderOverviewTab();
-          showToast(`Regla actualizada: ${cat.name} -> ${action}`, 'success');
+          showToast(`Error al guardar regla para ${cat.name}`, 'danger');
         }
       } catch (err) {
         console.error(err);
@@ -2159,11 +2180,11 @@
 
             <!-- Controls -->
             <div class="mt-4 pt-3 border-t border-[#283548] flex items-center justify-between text-xs">
-              <span class="text-slate-400">Estado:</span>
+              <span class="text-slate-400 font-medium">Estado:</span>
               <div class="flex items-center space-x-1.5">
-                <button onclick="updateAppPolicy('${app.id}', 'allowed')" class="px-2 py-1 rounded text-[11px] font-bold ${app.action === 'allowed' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}">Permitir</button>
-                <button onclick="updateAppPolicy('${app.id}', 'limited', 30)" class="px-2 py-1 rounded text-[11px] font-bold ${app.action === 'limited' ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400'}">Limitar</button>
-                <button onclick="updateAppPolicy('${app.id}', 'blocked')" class="px-2 py-1 rounded text-[11px] font-bold ${app.action === 'blocked' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400'}">Bloquear</button>
+                <button type="button" onclick="updateAppPolicy('${app.id}', 'allowed')" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold cursor-pointer transition-all duration-150 active:scale-95 ${app.action === 'allowed' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-1 ring-emerald-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}">Permitir</button>
+                <button type="button" onclick="updateAppPolicy('${app.id}', 'limited', 30)" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold cursor-pointer transition-all duration-150 active:scale-95 ${app.action === 'limited' ? 'bg-amber-500 text-black shadow-md shadow-amber-500/30 ring-1 ring-amber-300' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}">Limitar</button>
+                <button type="button" onclick="updateAppPolicy('${app.id}', 'blocked')" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold cursor-pointer transition-all duration-150 active:scale-95 ${app.action === 'blocked' ? 'bg-red-600 text-white shadow-md shadow-red-600/30 ring-1 ring-red-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}">Bloquear</button>
               </div>
             </div>
           </div>
@@ -2172,24 +2193,63 @@
     }
 
     async function updateAppPolicy(appId, action, limit = 30) {
+      const child = getActiveChild();
+
+      // 1. Buscar la app en el hijo activo y en la lista general
+      let app = null;
+      if (child && Array.isArray(child.monitoredApps)) {
+        app = child.monitoredApps.find(a => a.id === appId || (a.packageName && a.packageName === appId));
+      }
+      if (!app && Array.isArray(appData.monitoredApps)) {
+        app = appData.monitoredApps.find(a => a.id === appId || (a.packageName && a.packageName === appId));
+      }
+      if (!app) return;
+
+      const prevAction = app.action;
+      const prevLimit = app.dailyLimitMinutes;
+
+      // ACTUALIZACIÓN OPTIMISTA INMEDIATA (0 ms - Reactividad Total)
+      app.action = action;
+      if (limit) app.dailyLimitMinutes = limit;
+
+      // Sincronizar en la lista general también
+      if (Array.isArray(appData.monitoredApps)) {
+        const globalApp = appData.monitoredApps.find(a => a.id === app.id || a.packageName === app.packageName);
+        if (globalApp) {
+          globalApp.action = action;
+          if (limit) globalApp.dailyLimitMinutes = limit;
+        }
+      }
+
+      // Re-render instantáneo en pantalla
+      renderAppsTab();
+      renderSimulatorView();
+
+      const actionText = action === 'blocked' ? '🚫 Bloqueada' : (action === 'limited' ? '⏳ Limitada a 30 min' : '✅ Permitida');
+      showToast(`${app.name}: ${actionText}`, action === 'blocked' ? 'danger' : 'success');
+
+      // Envío en segundo plano
       try {
         const res = await authFetch('/api/apps/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ appId, action, dailyLimitMinutes: limit })
+          body: JSON.stringify({ 
+            childId: child.id,
+            appId: app.id, 
+            packageName: app.packageName, 
+            action, 
+            dailyLimitMinutes: limit 
+          })
         });
-        if (res.ok) {
-          const app = appData.monitoredApps.find(a => a.id === appId);
-          if (app) {
-            app.action = action;
-            if (limit) app.dailyLimitMinutes = limit;
-          }
+        if (!res.ok) {
+          // Si falló en el servidor, revertir
+          app.action = prevAction;
+          app.dailyLimitMinutes = prevLimit;
           renderAppsTab();
-          renderSimulatorView();
-          showToast(`Aplicación ${app.name} configurada como: ${action}`, 'success');
+          showToast(`No se pudo guardar la regla para ${app.name}`, 'danger');
         }
       } catch (err) {
-        console.error(err);
+        console.error('Error al guardar acción de app:', err);
       }
     }
 

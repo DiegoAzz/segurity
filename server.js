@@ -1370,15 +1370,48 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/apps/action' && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const { tenantDb } = resolveTenant(req, reqUrl, body);
-      const app = (tenantDb.monitoredApps || []).find(a => a.id === body.appId || a.packageName === body.packageName);
+      if (!tenantDb) return sendJson(res, 401, { error: 'No autorizado' });
+
+      const targetChildId = body.childId || tenantDb.activeChildId;
+      const targetChild = (tenantDb.children || []).find(c => c.id === targetChildId);
+
+      let app = (tenantDb.monitoredApps || []).find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
+      let childApp = null;
+      if (targetChild && Array.isArray(targetChild.monitoredApps)) {
+        childApp = targetChild.monitoredApps.find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
+        if (!app) app = childApp;
+      }
+      if (!app) {
+        (tenantDb.children || []).forEach(c => {
+          if (!app && Array.isArray(c.monitoredApps)) {
+            app = c.monitoredApps.find(a => a.id === body.appId || (body.packageName && a.packageName === body.packageName));
+            if (app) childApp = app;
+          }
+        });
+      }
+
       if (!app) return sendJson(res, 404, { error: 'Aplicación no encontrada' });
 
       if (body.action) app.action = body.action;
       if (body.dailyLimitMinutes !== undefined) app.dailyLimitMinutes = Number(body.dailyLimitMinutes);
 
+      if (childApp && childApp !== app) {
+        childApp.action = app.action;
+        childApp.dailyLimitMinutes = app.dailyLimitMinutes;
+      }
+
+      if (!tenantDb.monitoredApps) tenantDb.monitoredApps = [];
+      const rootIdx = tenantDb.monitoredApps.findIndex(a => a.id === app.id || a.packageName === app.packageName);
+      if (rootIdx !== -1) {
+        tenantDb.monitoredApps[rootIdx].action = app.action;
+        if (app.dailyLimitMinutes !== undefined) tenantDb.monitoredApps[rootIdx].dailyLimitMinutes = app.dailyLimitMinutes;
+      } else {
+        tenantDb.monitoredApps.push(app);
+      }
+
       const logEntry = {
         id: 'log_' + Date.now(),
-        childId: tenantDb.activeChildId || 'child_user_1',
+        childId: targetChild ? targetChild.id : (tenantDb.activeChildId || 'child_user_1'),
         type: 'app',
         title: body.action === 'blocked' ? `🚫 Aplicación Bloqueada: ${app.name}` : `Regla actualizada: ${app.name}`,
         details: `El padre ha configurado "${app.name}" como ${body.action.toUpperCase()}.`,
