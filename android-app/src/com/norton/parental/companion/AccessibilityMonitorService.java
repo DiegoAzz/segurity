@@ -287,6 +287,23 @@ public class AccessibilityMonitorService extends AccessibilityService {
         // 1. Pausa Instantánea Activa (Bloqueo total del dispositivo por los padres)
         if (LockOverlayService.isCurrentlyLocked()) {
             if (!pkg.equals(getPackageName())) {
+                // Si el niño intenta bajar la barra de notificaciones para apagar Wi-Fi o entrar a ajustes:
+                if (Build.VERSION.SDK_INT >= 31) {
+                    try {
+                        performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE);
+                    } catch (Exception ignored) {}
+                }
+                try {
+                    sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
+                } catch (Exception ignored) {}
+                try {
+                    Object statusBarService = getSystemService("statusbar");
+                    Class<?> statusBarManager = Class.forName("android.app.StatusBarManager");
+                    java.lang.reflect.Method collapse = statusBarManager.getMethod("collapsePanels");
+                    collapse.setAccessible(true);
+                    collapse.invoke(statusBarService);
+                } catch (Exception ignored) {}
+
                 try {
                     Intent lockActIntent = new Intent(this, LockActivity.class);
                     lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);

@@ -188,7 +188,13 @@ public class LockActivity extends Activity implements View.OnClickListener {
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             );
         }
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS |
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
+        applyImmersiveMode();
 
         setContentView(R.layout.overlay_lock);
 
@@ -279,6 +285,45 @@ public class LockActivity extends Activity implements View.OnClickListener {
             lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             startActivity(lockIntent);
         }
+    }
+
+    public void applyImmersiveMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            );
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            applyImmersiveMode();
+        } else if (LockOverlayService.isCurrentlyLocked() && !mIsTestMode) {
+            collapseStatusBar();
+            Intent lockIntent = new Intent(this, LockActivity.class);
+            lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(lockIntent);
+        }
+    }
+
+    public void collapseStatusBar() {
+        try {
+            sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
+        } catch (Exception ignored) {}
+        try {
+            Object statusBarService = getSystemService("statusbar");
+            Class<?> statusBarManager = Class.forName("android.app.StatusBarManager");
+            java.lang.reflect.Method collapse = statusBarManager.getMethod("collapsePanels");
+            collapse.setAccessible(true);
+            collapse.invoke(statusBarService);
+        } catch (Exception ignored) {}
     }
 
     @Override
