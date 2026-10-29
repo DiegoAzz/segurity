@@ -2893,6 +2893,23 @@
           if (newPending > oldPending) {
             showToast('🔔 ¡Nueva solicitud recibida de tu hijo desde su celular!', 'info');
           }
+
+          // Detectar si un nuevo celular o aplicaciones acaban de ser vinculados
+          const currentChild = (newData.children || []).find(c => c.id === currentId);
+          const oldChild = (appData.children || []).find(c => c.id === currentId);
+          if (currentChild && oldChild) {
+            const oldDevs = (oldChild.devices || []).length;
+            const newDevs = (currentChild.devices || []).length;
+            if (newDevs > oldDevs) {
+              const devName = currentChild.devices[0]?.name || 'Celular Android';
+              showToast(`🎉 ¡Nuevo celular vinculado a ${currentChild.name}! Dispositivo: ${devName}`, 'success');
+            }
+            const oldApps = (oldChild.monitoredApps || []).length;
+            const newApps = (currentChild.monitoredApps || []).length;
+            if (newApps > oldApps) {
+              showToast(`📲 Se sincronizaron y activaron ${newApps} aplicaciones para ${currentChild.name}.`, 'success');
+            }
+          }
           // Preservar el perfil de hijo que el padre está viendo activamente en su pantalla
           const currentId = localStorage.getItem('norton_active_child_id') || appData.activeChildId;
           newData.activeChildId = currentId;

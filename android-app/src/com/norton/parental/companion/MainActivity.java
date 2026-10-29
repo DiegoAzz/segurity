@@ -155,7 +155,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         try {
             String serverUrl = (etServerUrl != null && etServerUrl.getText() != null) ? etServerUrl.getText().toString().trim() : "https://segurity.appzplay.online";
             String code = (etPairingCode != null && etPairingCode.getText() != null) ? etPairingCode.getText().toString().trim() : "123456";
-            new ScanAppsThread(getPackageManager(), serverUrl, code).start();
+            SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+            String childId = prefs.getString("selected_child_id", "");
+            new ScanAppsThread(getPackageManager(), serverUrl, code, childId).start();
         } catch (Throwable ignored) {}
     }
 
@@ -163,11 +165,17 @@ public class MainActivity extends Activity implements View.OnClickListener {
         private final PackageManager mPm;
         private final String mServerUrl;
         private final String mCode;
+        private final String mChildId;
 
-        public ScanAppsThread(PackageManager pm, String serverUrl, String code) {
+        public ScanAppsThread(PackageManager pm, String serverUrl, String code, String childId) {
             mPm = pm;
             mServerUrl = serverUrl;
             mCode = code != null && !code.isEmpty() ? code : "123456";
+            mChildId = childId;
+        }
+
+        public ScanAppsThread(PackageManager pm, String serverUrl, String code) {
+            this(pm, serverUrl, code, "");
         }
 
         @Override
@@ -198,7 +206,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     }
                     jsonArray.append("]");
 
-                    String payload = "{\"code\":\"" + mCode + "\",\"apps\":" + jsonArray.toString() + "}";
+                    String devModel = Build.MANUFACTURER + " " + Build.MODEL;
+                    StringBuilder payload = new StringBuilder("{");
+                    payload.append("\"code\":\"").append(mCode).append("\",");
+                    if (mChildId != null && !mChildId.isEmpty()) {
+                        payload.append("\"childId\":\"").append(mChildId).append("\",");
+                    }
+                    payload.append("\"deviceName\":\"").append(devModel).append("\",");
+                    payload.append("\"apps\":").append(jsonArray.toString()).append("}");
 
                     URL url = new URL(srv + "/api/child/installed-apps");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -208,8 +223,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     conn.setConnectTimeout(4000);
                     conn.setReadTimeout(4000);
 
+                    byte[] postData = payload.toString().getBytes("UTF-8");
                     OutputStream os = conn.getOutputStream();
-                    os.write(payload.getBytes("UTF-8"));
+                    os.write(postData);
                     os.flush();
                     os.close();
 
@@ -467,6 +483,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
             mActivity.updateChildAssignedLabel();
             Toast.makeText(mActivity, "✅ Celular asignado a: " + selectedAvatar + " " + selectedName, Toast.LENGTH_LONG).show();
+
+            // Sincronizar inmediatamente todas las aplicaciones instaladas de este celular con el perfil de este hijo
+            String serverUrl = prefs.getString("server_url", "https://segurity.appzplay.online");
+            String code = prefs.getString("pairing_code", "123456");
+            new ScanAppsThread(mActivity.getPackageManager(), serverUrl, code, selectedId).start();
+
             mActivity.startCompanionService();
         }
     }
