@@ -303,6 +303,10 @@ function resolveTenant(req, reqUrl, body = {}) {
   // 1. Si viene código de 6 dígitos del teléfono APK
   if (pairingCode && Array.isArray(db.clients)) {
     matchedClient = db.clients.find(c => String(c.pairingCode).trim() === String(pairingCode).trim());
+    if (!matchedClient) {
+      // Si el APK envió un código pero no coincide con ninguna familia, no hacer fallback a otra familia
+      return { client: null, tenantDb: null, session, invalidCode: true };
+    }
   }
 
   // 2. Si se solicita un clientId específico (impersonación de admin o query)
@@ -637,7 +641,14 @@ const server = http.createServer(async (req, res) => {
 
     // Lista de hijos de la familia para vinculación rápida en Companion APK
     if (pathname === '/api/family/children' && req.method === 'GET') {
-      const { client, tenantDb } = resolveTenant(req, reqUrl);
+      const { client, tenantDb, invalidCode } = resolveTenant(req, reqUrl);
+      if (invalidCode || !tenantDb) {
+        return sendJson(res, 404, {
+          success: false,
+          error: 'Código de vinculación inválido o familia no encontrada',
+          children: []
+        });
+      }
       return sendJson(res, 200, {
         success: true,
         familyName: client ? client.name : 'Familia',
@@ -680,7 +691,15 @@ const server = http.createServer(async (req, res) => {
 
     // Obtener estado completo de la familia
     if (pathname === '/api/data' && req.method === 'GET') {
-      const { client, tenantDb } = resolveTenant(req, reqUrl);
+      const { client, tenantDb, invalidCode } = resolveTenant(req, reqUrl);
+      if (invalidCode || !tenantDb) {
+        return sendJson(res, 401, {
+          success: false,
+          error: 'Código familiar inválido o familia no encontrada',
+          instantLockActive: false,
+          children: []
+        });
+      }
       const isHttps = req.headers['x-forwarded-proto'] === 'https' || (process.env.PUBLIC_URL && process.env.PUBLIC_URL.startsWith('https'));
       const protocol = isHttps ? 'https' : 'http';
       const host = process.env.PUBLIC_URL

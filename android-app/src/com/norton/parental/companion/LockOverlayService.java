@@ -322,11 +322,16 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
             SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
             String pairingCode = prefs.getString("pairing_code", "123456");
+            String myChildId = prefs.getString("selected_child_id", "");
 
             for (String serverUrl : servers) {
                 if (serverUrl == null || serverUrl.isEmpty()) continue;
                 try {
-                    URL url = new URL(serverUrl + "/api/data?code=" + pairingCode);
+                    String reqUrl = serverUrl + "/api/data?code=" + pairingCode;
+                    if (!myChildId.isEmpty()) {
+                        reqUrl += "&childId=" + myChildId;
+                    }
+                    URL url = new URL(reqUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
                     conn.setConnectTimeout(1500);
@@ -345,17 +350,22 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                         boolean lockStatus = false;
                         try {
                             org.json.JSONObject root = new org.json.JSONObject(json);
+                            // Bloqueo total familiar
                             if (root.has("instantLockActive")) {
                                 lockStatus = root.optBoolean("instantLockActive", false);
                             }
-                            if (!lockStatus && root.has("children")) {
+                            // Bloqueo específico del hijo asignado a este celular
+                            if (root.has("children")) {
                                 org.json.JSONArray children = root.optJSONArray("children");
                                 if (children != null && children.length() > 0) {
                                     for (int i = 0; i < children.length(); i++) {
                                         org.json.JSONObject c = children.optJSONObject(i);
-                                        if (c != null && c.optBoolean("instantLockActive", false)) {
-                                            lockStatus = true;
-                                            break;
+                                        if (c != null) {
+                                            String cId = c.optString("id", "");
+                                            if (!myChildId.isEmpty() && cId.equals(myChildId)) {
+                                                lockStatus = c.optBoolean("instantLockActive", false);
+                                                break;
+                                            }
                                         }
                                     }
                                 }
@@ -369,6 +379,11 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                         }
                         conn.disconnect();
                         break;
+                    } else if (conn.getResponseCode() == 401 || conn.getResponseCode() == 404) {
+                        // Código familiar inválido: No bloquear el teléfono
+                        if (mService.mHandler != null) {
+                            mService.mHandler.post(new StateUpdater(mService, false));
+                        }
                     }
                     conn.disconnect();
                 } catch (Exception e) {}
