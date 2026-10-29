@@ -129,12 +129,25 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         requestLocationPermissionIfNeeded();
         startCompanionService();
-        scanAndUploadInstalledApps();
+
+        String code = prefs.getString("pairing_code", "123456");
+        String srvUrl = prefs.getString("server_url", "https://segurity.appzplay.online");
+        
+        // Si no tiene hijo asignado explícitamente, abrir de inmediato el selector de hijo
+        if (!prefs.contains("selected_child_id") || prefs.getString("selected_child_id", "").isEmpty()) {
+            fetchFamilyChildren(code, srvUrl);
+        } else {
+            scanAndUploadInstalledApps();
+        }
     }
 
     public void updateChildAssignedLabel() {
         if (tvChildAssigned == null) return;
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        if (!prefs.contains("selected_child_id") || prefs.getString("selected_child_id", "").isEmpty()) {
+            tvChildAssigned.setText("⚠️ Ningún hijo asignado a este celular. Pulsa el botón abajo para asignarlo.");
+            return;
+        }
         String name = prefs.getString("selected_child_name", "Lucas");
         String avatar = prefs.getString("selected_child_avatar", "👦");
         tvChildAssigned.setText(avatar + " Asignado a: " + name + " (Este celular pertenece a este hijo/a)");

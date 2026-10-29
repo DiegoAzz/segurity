@@ -323,6 +323,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
             SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
             String pairingCode = prefs.getString("pairing_code", "123456");
             String myChildId = prefs.getString("selected_child_id", "");
+            String myDevice = Build.MANUFACTURER + " " + Build.MODEL;
 
             for (String serverUrl : servers) {
                 if (serverUrl == null || serverUrl.isEmpty()) continue;
@@ -331,6 +332,9 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                     if (!myChildId.isEmpty()) {
                         reqUrl += "&childId=" + myChildId;
                     }
+                    try {
+                        reqUrl += "&device=" + java.net.URLEncoder.encode(myDevice, "UTF-8");
+                    } catch (Exception ignored) {}
                     URL url = new URL(reqUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
@@ -350,33 +354,31 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                         boolean lockStatus = false;
                         try {
                             org.json.JSONObject root = new org.json.JSONObject(json);
-                            if (root.has("children")) {
-                                org.json.JSONArray children = root.optJSONArray("children");
-                                if (children != null && children.length() > 0) {
-                                    org.json.JSONObject targetChild = null;
-                                    // 1. Buscar coincidencia exacta por ID de hijo
-                                    if (!myChildId.isEmpty()) {
-                                        for (int i = 0; i < children.length(); i++) {
-                                            org.json.JSONObject c = children.optJSONObject(i);
-                                            if (c != null && myChildId.equals(c.optString("id", ""))) {
-                                                targetChild = c;
-                                                break;
-                                            }
+                            org.json.JSONArray children = root.optJSONArray("children");
+                            if (children != null && children.length() > 0) {
+                                org.json.JSONObject targetChild = null;
+                                // 1. Buscar coincidencia exacta por ID de hijo
+                                if (!myChildId.isEmpty()) {
+                                    for (int i = 0; i < children.length(); i++) {
+                                        org.json.JSONObject c = children.optJSONObject(i);
+                                        if (c != null && myChildId.equals(c.optString("id", ""))) {
+                                            targetChild = c;
+                                            break;
                                         }
                                     }
-                                    // 2. Si no tenía hijo asignado o no coincide, vincular automáticamente al primer perfil (Mi Hijo)
-                                    if (targetChild == null) {
-                                        targetChild = children.optJSONObject(0);
-                                        if (targetChild != null) {
-                                            String autoId = targetChild.optString("id", "child_user_1");
-                                            prefs.edit().putString("selected_child_id", autoId).apply();
-                                            myChildId = autoId;
-                                        }
-                                    }
+                                }
+                                // 2. Si no tenía hijo asignado: SÓLO auto-vincular si la familia tiene 1 solo hijo
+                                if (targetChild == null && children.length() == 1) {
+                                    targetChild = children.optJSONObject(0);
                                     if (targetChild != null) {
-                                        // El estado de bloqueo depende EXCLUSIVAMENTE de este hijo
-                                        lockStatus = targetChild.optBoolean("instantLockActive", false);
+                                        String autoId = targetChild.optString("id", "child_user_1");
+                                        prefs.edit().putString("selected_child_id", autoId).apply();
+                                        myChildId = autoId;
                                     }
+                                }
+                                if (targetChild != null) {
+                                    // El estado de bloqueo depende EXCLUSIVAMENTE de este hijo
+                                    lockStatus = targetChild.optBoolean("instantLockActive", false);
                                 }
                             } else if (root.has("instantLockActive")) {
                                 lockStatus = root.optBoolean("instantLockActive", false);

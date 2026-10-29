@@ -735,16 +735,31 @@ const server = http.createServer(async (req, res) => {
 
       const targetChildId = reqUrl.searchParams.get('childId');
       const isApkRequest = reqUrl.searchParams.has('code');
+      const deviceParam = reqUrl.searchParams.get('device');
       
       let activeChild = null;
       if (targetChildId) {
         activeChild = (tenantDb.children || []).find(c => c.id === targetChildId || (targetChildId === 'child_1' && c.id === 'child_user_1'));
       }
+
+      // Si el teléfono envía su modelo de dispositivo real (ej: "OPPO CPH2743" o "incar CP20S")
+      if (deviceParam) {
+        const foundByDevice = (tenantDb.children || []).find(c => 
+          (c.devices || []).some(d => d.name && d.name.toLowerCase().trim() === deviceParam.toLowerCase().trim())
+        );
+        if (foundByDevice) {
+          activeChild = foundByDevice;
+        }
+      }
       
       if (!activeChild) {
         if (isApkRequest) {
-          // Solicitudes del celular APK: buscar primero el hijo que tenga registrado este dispositivo
-          activeChild = (tenantDb.children || []).find(c => (c.devices || []).length > 0) || (tenantDb.children || [])[0];
+          // Solicitudes del celular APK: SOLO auto-asignar si la familia tiene 1 único hijo
+          if ((tenantDb.children || []).length === 1) {
+            activeChild = (tenantDb.children || [])[0];
+          } else {
+            activeChild = null;
+          }
         } else {
           // Solicitudes de la web de los padres: usar el hijo que están viendo en pantalla
           activeChild = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0];
@@ -755,7 +770,16 @@ const server = http.createServer(async (req, res) => {
 
       // AISLAMIENTO ESTRICTO PARA EL CELULAR APK:
       // El teléfono del hijo NUNCA debe recibir información ni estados de bloqueo de otros hermanos.
-      if (isApkRequest && activeChild) {
+      if (isApkRequest) {
+        if (!activeChild) {
+          return sendJson(res, 200, {
+            ...tenantDb,
+            instantLockActive: false,
+            children: [],
+            unassigned: true
+          });
+        }
+
         const isolatedChild = {
           ...activeChild,
           instantLockActive: !!activeChild.instantLockActive
@@ -1061,6 +1085,57 @@ const server = http.createServer(async (req, res) => {
       saveDatabase(db);
       console.log(`[DISPOSITIVO] Dispositivo desvinculado con éxito para ${child.name} (${child.id})`);
       return sendJson(res, 200, { success: true, message: 'Dispositivo desvinculado con éxito', child, log: logEntry });
+    }
+
+    // Reasignar dispositivo de un hijo a otro
+    if (pathname === '/api/device/reassign' && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { tenantDb } = resolveTenant(req, reqUrl, body);
+      if (!tenantDb) return sendJson(res, 401, { error: 'No autorizado o familia no encontrada' });
+
+      const fromChild = (tenantDb.children || []).find(c => c.id === body.fromChildId);
+      const toChild = (tenantDb.children || []).find(c => c.id === body.toChildId);
+      if (!fromChild || !toChild) return sendJson(res, 404, { error: 'Hijos no encontrados' });
+
+      const devName = body.deviceName;
+      let movedDev = null;
+      if (fromChild.devices) {
+        const devIdx = fromChild.devices.findIndex(d => !devName || d.name === devName || d.id === body.deviceId);
+        if (devIdx !== -1) {
+          movedDev = fromChild.devices.splice(devIdx, 1)[0];
+        }
+      }
+      if (!movedDev) {
+        movedDev = {
+          id: 'real_phone_' + Date.now(),
+          name: devName || 'Smartphone Android',
+          type: 'smartphone',
+          os: 'Android',
+          batteryLevel: 90,
+          isOnline: true,
+          lastSeen: 'Ahora mismo'
+        };
+      }
+
+      if (!toChild.devices) toChild.devices = [];
+      toChild.devices = [movedDev];
+
+      // Mover también las aplicaciones sincronizadas si pertenecen a este dispositivo
+      if (Array.isArray(tenantDb.monitoredApps)) {
+        tenantDb.monitoredApps.forEach(a => {
+          if (a.childId === fromChild.id) {
+            a.childId = toChild.id;
+          }
+        });
+      }
+      if (Array.isArray(fromChild.monitoredApps)) {
+        toChild.monitoredApps = fromChild.monitoredApps;
+        fromChild.monitoredApps = [];
+      }
+
+      saveDatabase(db);
+      console.log(`[REASIGNAR] Dispositivo ${movedDev.name} movido de ${fromChild.name} a ${toChild.name}`);
+      return sendJson(res, 200, { success: true, movedDev, fromChild, toChild });
     }
 
     // Eliminar perfil de hijo
