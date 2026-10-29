@@ -30,6 +30,26 @@
         "updatedAt": "Pendiente",
         "zone": "Esperando celular"
       }
+    },
+    {
+      "id": "child_vicky",
+      "name": "Vicky",
+      "age": 10,
+      "avatar": "👧",
+      "dailyLimitMinutes": 120,
+      "usedTodayMinutes": 0,
+      "instantLockActive": false,
+      "safeSearchEnabled": true,
+      "schoolTimeActive": false,
+      "devices": [],
+      "currentLocation": {
+        "lat": 10.3982,
+        "lng": -75.4933,
+        "address": "Esperando primera sincronización GPS...",
+        "battery": 100,
+        "updatedAt": "Pendiente",
+        "zone": "Sin registrar"
+      }
     }
   ],
   "webCategories": [

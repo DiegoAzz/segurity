@@ -7,7 +7,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3080;
-const DB_PATH = path.join(__dirname, 'data', 'database.json');
+const DATA_DIR = process.env.DATA_PATH || path.join(__dirname, 'data');
+const DB_PATH = path.join(DATA_DIR, 'database.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 function getLocalIpAddress() {
@@ -164,6 +165,14 @@ function createDefaultFamilyData(childName = 'Mi Hijo', childAge = 11) {
 function loadDatabase() {
   let loaded = null;
   try {
+    if (!fs.existsSync(DB_PATH)) {
+      const templatePath = path.join(__dirname, 'data', 'database.json');
+      if (fs.existsSync(templatePath) && templatePath !== DB_PATH) {
+        const dir = path.dirname(DB_PATH);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.copyFileSync(templatePath, DB_PATH);
+      }
+    }
     if (fs.existsSync(DB_PATH)) {
       const data = fs.readFileSync(DB_PATH, 'utf8');
       loaded = JSON.parse(data);

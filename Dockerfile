@@ -15,6 +15,9 @@ COPY server.js ./
 COPY public/ ./public/
 COPY data/ ./data/
 
+# Asegurar permisos completos de lectura y escritura para el usuario node en el directorio de datos
+RUN mkdir -p /app/data && chown -R node:node /app && chmod -R 775 /app/data
+
 # Variables de entorno por defecto
 ENV PORT=3080
 ENV NODE_ENV=production
