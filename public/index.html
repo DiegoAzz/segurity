@@ -88,8 +88,8 @@
         </div>
       </div>
 
-      <!-- Child Selector Pills (Desktop) -->
-      <div id="childSelectorContainer" class="hidden md:flex items-center bg-[#1E293B]/70 p-1 rounded-xl border border-[#283548]">
+      <!-- Child Selector Dropdown (Desktop) -->
+      <div id="childSelectorContainer" class="hidden md:block relative z-40">
         <!-- Rendered by JS -->
       </div>
 
@@ -1224,34 +1224,96 @@
       }
     }
 
-    // Child Selectors (Header)
+    // Child Selectors (Modern Dropdown)
     function renderChildSelectors() {
       const active = getActiveChild();
       const containerDesktop = document.getElementById('childSelectorContainer');
       const containerMobile = document.getElementById('childSelectorMobile');
+      const children = appData.children || [];
 
-      const childButtons = (appData.children || []).map(child => {
-        const isCurrent = child.id === active.id;
-        const bg = isCurrent ? 'bg-[#FFB800] text-black font-extrabold shadow-sm' : 'text-slate-300 hover:text-white font-medium';
+      const makeDropdownHtml = (isMobile = false) => {
+        const menuId = isMobile ? 'childDropdownMenuMobile' : 'childDropdownMenuDesktop';
+        const toggleFn = isMobile ? 'toggleChildDropdown(event, true)' : 'toggleChildDropdown(event, false)';
         return `
-          <button onclick="selectChild('${child.id}')" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs transition ${bg}">
-            <span class="text-sm">${child.avatar}</span>
-            <span>${child.name.split(' ')[0]}</span>
-            <span class="text-[10px] opacity-75">(${child.age}a)</span>
-          </button>
+          <div class="relative inline-block text-left">
+            <button type="button" onclick="${toggleFn}" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#1E293B] hover:bg-[#283548] border border-[#334155] text-white text-xs font-bold transition shadow-sm cursor-pointer select-none">
+              <span class="text-base">${active.avatar || '👦'}</span>
+              <div class="text-left leading-tight">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-extrabold text-white">${active.name || 'Hijo'}</span>
+                  <span class="text-[10px] text-amber-400 font-extrabold">(${active.age || 10}a)</span>
+                </div>
+                <div class="text-[9px] text-slate-400 font-medium">${children.length} hijo${children.length > 1 ? 's' : ''} registrado${children.length > 1 ? 's' : ''}</div>
+              </div>
+              <svg class="w-3.5 h-3.5 text-slate-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="${menuId}" class="hidden absolute left-0 mt-2 w-64 bg-[#161F30] border border-[#283548] rounded-2xl shadow-2xl p-2 z-50 space-y-1">
+              <div class="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Hijos Registrados</span>
+                <span class="text-amber-400 font-normal">Cambiar perfil</span>
+              </div>
+
+              <div class="max-h-60 overflow-y-auto space-y-1">
+                ${children.map(c => {
+                  const isCur = c.id === active.id;
+                  const bg = isCur ? 'bg-amber-400/15 border border-amber-400/30 text-white font-bold' : 'text-slate-300 hover:bg-slate-800/80 hover:text-white border border-transparent';
+                  const check = isCur ? '<span class="text-amber-400 text-xs font-black">✓</span>' : '';
+                  return `
+                    <button type="button" onclick="selectChild('${c.id}'); closeAllChildDropdowns();" class="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition cursor-pointer ${bg}">
+                      <div class="flex items-center space-x-2.5 text-left">
+                        <span class="text-lg">${c.avatar || '👦'}</span>
+                        <div>
+                          <div class="font-bold flex items-center space-x-1">
+                            <span>${c.name}</span>
+                            <span class="text-[10px] opacity-75 font-normal">(${c.age} años)</span>
+                          </div>
+                          <div class="text-[10px] text-slate-400">Límite: ${c.dailyLimitMinutes || 120} min/día</div>
+                        </div>
+                      </div>
+                      ${check}
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+
+              <div class="border-t border-[#283548] my-1"></div>
+
+              <button type="button" onclick="openAddChildModal(); closeAllChildDropdowns();" class="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl text-xs font-bold text-amber-400 hover:bg-amber-400/10 transition cursor-pointer">
+                <span class="w-6 h-6 rounded-lg bg-amber-400/20 text-amber-400 flex items-center justify-center font-black text-sm">+</span>
+                <span>Registrar nuevo Hijo o Hija</span>
+              </button>
+            </div>
+          </div>
         `;
-      }).join('');
+      };
 
-      const addBtn = `
-        <button onclick="openAddChildModal()" class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-400 hover:text-white hover:bg-amber-400/20 border border-dashed border-amber-400/50 transition ml-1 cursor-pointer" title="Registrar otro hijo o hija">
-          <span class="text-sm font-black">+</span>
-          <span class="hidden sm:inline">Agregar Hijo/a</span>
-        </button>
-      `;
-
-      if (containerDesktop) containerDesktop.innerHTML = childButtons + addBtn;
-      if (containerMobile) containerMobile.innerHTML = childButtons + addBtn;
+      if (containerDesktop) containerDesktop.innerHTML = makeDropdownHtml(false);
+      if (containerMobile) containerMobile.innerHTML = makeDropdownHtml(true);
     }
+
+    function toggleChildDropdown(event, isMobile) {
+      if (event) event.stopPropagation();
+      const menuDesktop = document.getElementById('childDropdownMenuDesktop');
+      const menuMobile = document.getElementById('childDropdownMenuMobile');
+      const targetMenu = isMobile ? menuMobile : menuDesktop;
+      const otherMenu = isMobile ? menuDesktop : menuMobile;
+
+      if (otherMenu) otherMenu.classList.add('hidden');
+      if (targetMenu) targetMenu.classList.toggle('hidden');
+    }
+
+    function closeAllChildDropdowns() {
+      const menuDesktop = document.getElementById('childDropdownMenuDesktop');
+      const menuMobile = document.getElementById('childDropdownMenuMobile');
+      if (menuDesktop) menuDesktop.classList.add('hidden');
+      if (menuMobile) menuMobile.classList.add('hidden');
+    }
+
+    document.addEventListener('click', () => {
+      closeAllChildDropdowns();
+    });
 
     function openAddChildModal() {
       document.getElementById('newChildName').value = '';
