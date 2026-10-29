@@ -5,6 +5,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -63,6 +64,15 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         mHandler = new Handler(Looper.getMainLooper());
         createNotificationChannel();
+
+        // Asegurar que el icono principal de la app siempre permanezca visible en el lanzador
+        try {
+            getPackageManager().setComponentEnabledSetting(
+                new ComponentName(this, MainActivity.class),
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            );
+        } catch (Throwable ignored) {}
 
         Notification.Builder builder;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -52,6 +52,35 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private Button btnLockSettingsNow;
     private Button btnStealthMode;
 
+    private boolean mSessionUnlocked = false;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        enforcePinGate();
+    }
+
+    private void enforcePinGate() {
+        // Asegurar que el icono siempre esté visible en el celular
+        try {
+            getPackageManager().setComponentEnabledSetting(
+                new ComponentName(this, MainActivity.class),
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            );
+        } catch (Throwable ignored) {}
+
+        if (mSessionUnlocked) {
+            if (llPinGate != null) llPinGate.setVisibility(View.GONE);
+            if (llMainContent != null) llMainContent.setVisibility(View.VISIBLE);
+        } else {
+            if (llPinGate != null) llPinGate.setVisibility(View.VISIBLE);
+            if (llMainContent != null) llMainContent.setVisibility(View.GONE);
+            if (etGatePin != null) etGatePin.setText("");
+            if (tvGateError != null) tvGateError.setVisibility(View.GONE);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,13 +106,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         if (btnLockSettingsNow != null) btnLockSettingsNow.setOnClickListener(this);
         if (btnStealthMode != null) btnStealthMode.setOnClickListener(this);
 
-        try {
-            getPackageManager().setComponentEnabledSetting(
-                new ComponentName(this, MainActivity.class),
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
-            );
-        } catch (Throwable ignored) {}
+        enforcePinGate();
 
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         String savedCode = prefs.getString("pairing_code", "123456");
@@ -93,15 +116,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
         if (etServerUrl != null) etServerUrl.setText(savedUrl);
 
         updateChildAssignedLabel();
-
-        boolean isPinLockEnabled = prefs.getBoolean("pin_lock_enabled", false);
-        if (isPinLockEnabled && llPinGate != null && llMainContent != null) {
-            llPinGate.setVisibility(View.VISIBLE);
-            llMainContent.setVisibility(View.GONE);
-        } else {
-            if (llPinGate != null) llPinGate.setVisibility(View.GONE);
-            if (llMainContent != null) llMainContent.setVisibility(View.VISIBLE);
-        }
 
         Button btnSaveCode = findViewById(R.id.btn_save_pairing_code);
         if (btnSaveCode != null) btnSaveCode.setOnClickListener(this);
@@ -340,12 +354,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 SharedPreferences p = getSharedPreferences("norton_prefs", MODE_PRIVATE);
                 String correctCode = p.getString("pairing_code", "123456");
                 if (entered.equals(correctCode) || entered.equals("1234") || entered.equals("0000")) {
-                    p.edit().putBoolean("pin_lock_enabled", false).apply();
+                    mSessionUnlocked = true;
                     if (tvGateError != null) tvGateError.setVisibility(View.GONE);
                     if (llPinGate != null) llPinGate.setVisibility(View.GONE);
                     if (llMainContent != null) llMainContent.setVisibility(View.VISIBLE);
                     etGatePin.setText("");
-                    Toast.makeText(this, "Acceso concedido para padres", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "✅ Acceso concedido para padres", Toast.LENGTH_SHORT).show();
                 } else {
                     if (tvGateError != null) tvGateError.setVisibility(View.VISIBLE);
                 }
@@ -355,20 +369,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
             finish();
 
         } else if (id == R.id.btn_lock_settings_now) {
-            SharedPreferences p = getSharedPreferences("norton_prefs", MODE_PRIVATE);
-            p.edit().putBoolean("pin_lock_enabled", true).apply();
+            mSessionUnlocked = false;
             if (llMainContent != null) llMainContent.setVisibility(View.GONE);
             if (llPinGate != null) llPinGate.setVisibility(View.VISIBLE);
             if (tvGateError != null) tvGateError.setVisibility(View.GONE);
             Toast.makeText(this, "🔒 Configuración bloqueada con PIN", Toast.LENGTH_SHORT).show();
 
         } else if (id == R.id.btn_stealth_mode) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle("¿Ocultar icono de la aplicación?");
-            builder.setMessage("El icono desaparecerá de la pantalla para que el niño no pueda abrir la app.\n\nLa supervisión parental continuará activa 24/7 en segundo plano.");
-            builder.setPositiveButton("Sí, Ocultar Icono", new StealthConfirmListener(this));
-            builder.setNegativeButton("Cancelar", null);
-            builder.show();
+            Toast.makeText(this, "🔒 El icono permanece visible pero está protegido con tu PIN de Padres (123456).", Toast.LENGTH_LONG).show();
         }
     }
 

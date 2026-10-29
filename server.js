@@ -744,9 +744,13 @@ const server = http.createServer(async (req, res) => {
 
       // Si el teléfono envía su modelo de dispositivo real (ej: "OPPO CPH2743" o "incar CP20S")
       if (deviceParam) {
-        const foundByDevice = (tenantDb.children || []).find(c => 
+        let foundByDevice = (tenantDb.children || []).find(c => 
           (c.devices || []).some(d => d.name && d.name.toLowerCase().trim() === deviceParam.toLowerCase().trim())
         );
+        // Si es el teléfono OPPO de la hija y aún no está asignado a Vicky, vincularlo directamente a Vicky
+        if (!foundByDevice && (deviceParam.includes('CPH2743') || deviceParam.toLowerCase().includes('oppo'))) {
+          foundByDevice = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vicky'));
+        }
         if (foundByDevice) {
           activeChild = foundByDevice;
         }
@@ -841,7 +845,11 @@ const server = http.createServer(async (req, res) => {
       
       const targetChildId = body.childId || reqUrl.searchParams.get('childId');
       let child = null;
-      if (targetChildId) {
+
+      // Si la telemetría proviene del teléfono OPPO, vincular directamente al perfil de Vicky
+      if (body.deviceName && (body.deviceName.includes('CPH2743') || body.deviceName.toLowerCase().includes('oppo'))) {
+        child = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vicky'));
+      } else if (targetChildId) {
         child = (tenantDb.children || []).find(c => c.id === targetChildId || (targetChildId === 'child_1' && c.id === 'child_user_1'));
       }
       if (!child) {
