@@ -11,8 +11,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -51,8 +49,7 @@
         <!-- Servicio de Bloqueo por Superposición (Tapa YouTube y Apps) -->
         <service
             android:name=".LockOverlayService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse|location" />
+            android:exported="false" />
 
         <!-- Servicio de Accesibilidad para monitorear qué app se abre -->
         <service

@@ -1406,10 +1406,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     const ext = path.extname(filePath);
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const contentType = ext === '.apk' ? 'application/vnd.android.package-archive' : (MIME_TYPES[ext] || 'application/octet-stream');
 
-    const headers = { 'Content-Type': contentType };
+    const headers = {
+      'Content-Type': contentType,
+      'Content-Length': stats.size,
+      'Accept-Ranges': 'bytes'
+    };
     if (ext === '.apk') {
+      headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
       headers['Content-Disposition'] = 'attachment; filename="appzsegurity.apk"';
     }
     fs.readFile(filePath, (readErr, content) => {

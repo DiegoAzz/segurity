@@ -77,6 +77,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
         if (btnLockSettingsNow != null) btnLockSettingsNow.setOnClickListener(this);
         if (btnStealthMode != null) btnStealthMode.setOnClickListener(this);
 
+        try {
+            getPackageManager().setComponentEnabledSetting(
+                new ComponentName(this, MainActivity.class),
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            );
+        } catch (Throwable ignored) {}
+
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         String savedCode = prefs.getString("pairing_code", "123456");
         String savedUrl = prefs.getString("server_url", "https://segurity.appzplay.online");
@@ -86,8 +94,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         updateChildAssignedLabel();
 
-        boolean isConfigured = prefs.getBoolean("is_configured", false);
-        if (isConfigured && llPinGate != null && llMainContent != null) {
+        boolean isPinLockEnabled = prefs.getBoolean("pin_lock_enabled", false);
+        if (isPinLockEnabled && llPinGate != null && llMainContent != null) {
             llPinGate.setVisibility(View.VISIBLE);
             llMainContent.setVisibility(View.GONE);
         } else {
@@ -144,9 +152,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     public void scanAndUploadInstalledApps() {
-        String serverUrl = etServerUrl.getText().toString().trim();
-        String code = etPairingCode != null ? etPairingCode.getText().toString().trim() : "123456";
-        new ScanAppsThread(getPackageManager(), serverUrl, code).start();
+        try {
+            String serverUrl = (etServerUrl != null && etServerUrl.getText() != null) ? etServerUrl.getText().toString().trim() : "https://segurity.appzplay.online";
+            String code = (etPairingCode != null && etPairingCode.getText() != null) ? etPairingCode.getText().toString().trim() : "123456";
+            new ScanAppsThread(getPackageManager(), serverUrl, code).start();
+        } catch (Throwable ignored) {}
     }
 
     public static class ScanAppsThread extends Thread {
@@ -214,11 +224,17 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     private void startCompanionService() {
-        Intent serviceIntent = new Intent(this, LockOverlayService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
+        try {
+            Intent serviceIntent = new Intent(this, LockOverlayService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Throwable t) {
+            try {
+                startService(new Intent(this, LockOverlayService.class));
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -295,6 +311,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 SharedPreferences p = getSharedPreferences("norton_prefs", MODE_PRIVATE);
                 String correctCode = p.getString("pairing_code", "123456");
                 if (entered.equals(correctCode) || entered.equals("1234") || entered.equals("0000")) {
+                    p.edit().putBoolean("pin_lock_enabled", false).apply();
                     if (tvGateError != null) tvGateError.setVisibility(View.GONE);
                     if (llPinGate != null) llPinGate.setVisibility(View.GONE);
                     if (llMainContent != null) llMainContent.setVisibility(View.VISIBLE);
@@ -310,7 +327,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         } else if (id == R.id.btn_lock_settings_now) {
             SharedPreferences p = getSharedPreferences("norton_prefs", MODE_PRIVATE);
-            p.edit().putBoolean("is_configured", true).apply();
+            p.edit().putBoolean("pin_lock_enabled", true).apply();
             if (llMainContent != null) llMainContent.setVisibility(View.GONE);
             if (llPinGate != null) llPinGate.setVisibility(View.VISIBLE);
             if (tvGateError != null) tvGateError.setVisibility(View.GONE);
@@ -446,7 +463,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
                  .putString("selected_child_id", selectedId)
                  .putString("selected_child_name", selectedName)
                  .putString("selected_child_avatar", selectedAvatar)
-                 .putBoolean("is_configured", true)
                  .apply();
 
             mActivity.updateChildAssignedLabel();
