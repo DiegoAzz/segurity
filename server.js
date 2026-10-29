@@ -753,6 +753,37 @@ const server = http.createServer(async (req, res) => {
       // El estado instantLockActive en la raíz de la respuesta responde únicamente al hijo evaluado
       const instantLockActive = activeChild ? !!activeChild.instantLockActive : false;
 
+      // AISLAMIENTO ESTRICTO PARA EL CELULAR APK:
+      // El teléfono del hijo NUNCA debe recibir información ni estados de bloqueo de otros hermanos.
+      if (isApkRequest && activeChild) {
+        const isolatedChild = {
+          ...activeChild,
+          instantLockActive: !!activeChild.instantLockActive
+        };
+        return sendJson(res, 200, {
+          ...tenantDb,
+          activeChildId: activeChild.id,
+          instantLockActive: !!activeChild.instantLockActive,
+          children: [isolatedChild],
+          monitoredApps: (tenantDb.monitoredApps || []).filter(a => !a.childId || a.childId === activeChild.id),
+          blockedPackages,
+          blockedDomains,
+          blockedKeywords,
+          adultBlocked,
+          clientInfo: client ? {
+            id: client.id,
+            name: client.name,
+            pairingCode: client.pairingCode
+          } : null,
+          serverNetwork: {
+            localIp: LOCAL_IP,
+            port: PORT,
+            mobileChildUrl: `${baseUrl}/child?code=${client?.pairingCode || ''}`,
+            parentUrl: baseUrl
+          }
+        });
+      }
+
       return sendJson(res, 200, {
         ...tenantDb,
         instantLockActive,
