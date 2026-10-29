@@ -4,6 +4,14 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 
+// Blindaje total contra caídas del servidor Node.js
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL SERVER ERROR - PREVENTED EXIT]', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED REJECTION - PREVENTED EXIT]', reason);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3080;
@@ -1437,6 +1445,12 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // Healthcheck para Coolify / Traefik / Docker
+  if (pathname === '/health' || pathname === '/healthz' || pathname === '/ping') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+  }
+
   // /child o /companion
   if (pathname === '/child' || pathname === '/companion') {
     const childFile = path.join(PUBLIC_DIR, 'child.html');
@@ -1446,7 +1460,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // --- SERVIR ARCHIVOS ESTÁTICOS ---
+  // --- SERVIR ARCHIVOS ESTÁTICOS BLINDADO (SIN RIESGO DE CRASH) ---
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
 
   if (!filePath.startsWith(PUBLIC_DIR)) {
@@ -1454,11 +1468,18 @@ const server = http.createServer(async (req, res) => {
     return res.end('Acceso denegado');
   }
 
-  fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      filePath = path.join(PUBLIC_DIR, 'index.html');
-    }
+  // Fallback seguro si el archivo no existe
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    filePath = path.join(PUBLIC_DIR, 'index.html');
+  }
 
+  if (!fs.existsSync(filePath)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Archivo no encontrado');
+  }
+
+  try {
+    const stats = fs.statSync(filePath);
     const ext = path.extname(filePath);
     const contentType = ext === '.apk' ? 'application/vnd.android.package-archive' : (MIME_TYPES[ext] || 'application/octet-stream');
 
@@ -1471,15 +1492,13 @@ const server = http.createServer(async (req, res) => {
       headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
       headers['Content-Disposition'] = 'attachment; filename="appzsegurity.apk"';
     }
-    fs.readFile(filePath, (readErr, content) => {
-      if (readErr) {
-        res.writeHead(500);
-        return res.end('Error interno del servidor');
-      }
-      res.writeHead(200, headers);
-      res.end(content);
-    });
-  });
+
+    res.writeHead(200, headers);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Error interno del servidor');
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
