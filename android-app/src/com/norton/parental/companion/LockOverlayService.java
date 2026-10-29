@@ -233,6 +233,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
                 SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
                 String pairingCode = prefs.getString("pairing_code", "123456");
+                String childId = prefs.getString("selected_child_id", "child_1");
 
                 String[] servers = new String[] {
                     mService.mServerBaseUrl,
@@ -242,7 +243,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
                 StringBuilder payload = new StringBuilder("{");
                 payload.append("\"code\":\"").append(pairingCode).append("\",");
-                payload.append("\"childId\":\"child_1\",");
+                payload.append("\"childId\":\"").append(childId).append("\",");
                 payload.append("\"batteryLevel\":").append(batteryLevel).append(",");
                 payload.append("\"deviceName\":\"").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\",");
                 payload.append("\"os\":\"Android ").append(Build.VERSION.RELEASE).append("\"");
@@ -410,12 +411,25 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         return START_STICKY;
     }
 
+    public static class ConsumeTouchListener implements View.OnTouchListener {
+        @Override
+        public boolean onTouch(View v, android.view.MotionEvent event) {
+            return true;
+        }
+    }
+
     public void showOverlay(String customMessage) {
         if (sIsLocked && mOverlayView != null) {
             if (customMessage != null) {
                 TextView tv = mOverlayView.findViewById(R.id.tv_overlay_title);
                 if (tv != null) tv.setText(customMessage);
             }
+            try {
+                Intent lockActIntent = new Intent(this, LockActivity.class);
+                lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                if (customMessage != null) lockActIntent.putExtra("blocked_reason", customMessage);
+                startActivity(lockActIntent);
+            } catch (Exception ignored) {}
             return;
         }
 
@@ -430,16 +444,21 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 layoutType,
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                         | WindowManager.LayoutParams.FLAG_FULLSCREEN
-                        | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                        | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                        | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                        | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD,
                 PixelFormat.TRANSLUCENT
         );
         params.gravity = Gravity.CENTER;
 
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         mOverlayView = inflater.inflate(R.layout.overlay_lock, null);
+
+        // Consumir el 100% de los toques para que absolutamente nada pase a las apps de atrás
+        mOverlayView.setOnTouchListener(new ConsumeTouchListener());
 
         TextView tvTitle = mOverlayView.findViewById(R.id.tv_overlay_title);
         if (tvTitle != null && customMessage != null) {
@@ -472,7 +491,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         // Siempre lanzar también LockActivity en pantalla completa por seguridad total
         try {
             Intent lockActIntent = new Intent(this, LockActivity.class);
-            lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             if (customMessage != null) {
                 lockActIntent.putExtra("blocked_reason", customMessage);
             }

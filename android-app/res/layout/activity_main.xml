@@ -107,6 +107,26 @@
                     android:textStyle="bold"
                     android:textSize="12sp" />
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_child_assigned"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="👦 Hijo asignado: Lucas (Perfil Principal)"
+                android:textColor="#38BDF8"
+                android:textStyle="bold"
+                android:textSize="12sp"
+                android:layout_marginTop="8dp" />
+
+            <Button
+                android:id="@+id/btn_change_child"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Cambiar Hijo Asignado (Sofía / Lucas...)"
+                android:backgroundTint="#1E293B"
+                android:textColor="#E2E8F0"
+                android:textSize="11sp"
+                android:layout_marginTop="6dp" />
         </LinearLayout>
 
         <!-- Permisos Esenciales -->

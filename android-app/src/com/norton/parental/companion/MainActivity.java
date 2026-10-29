@@ -2,8 +2,10 @@ package com.norton.parental.companion;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
@@ -11,6 +13,8 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
@@ -18,9 +22,15 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends Activity implements View.OnClickListener {
@@ -30,15 +40,19 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private TextView tvStatus;
     public EditText etServerUrl;
     public EditText etPairingCode;
+    public TextView tvChildAssigned;
+    public Handler mHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mHandler = new Handler(Looper.getMainLooper());
 
         tvStatus = findViewById(R.id.tv_status);
         etServerUrl = findViewById(R.id.et_server_url);
         etPairingCode = findViewById(R.id.et_pairing_code);
+        tvChildAssigned = findViewById(R.id.tv_child_assigned);
 
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         String savedCode = prefs.getString("pairing_code", "123456");
@@ -47,8 +61,13 @@ public class MainActivity extends Activity implements View.OnClickListener {
         if (etPairingCode != null) etPairingCode.setText(savedCode);
         if (etServerUrl != null) etServerUrl.setText(savedUrl);
 
+        updateChildAssignedLabel();
+
         Button btnSaveCode = findViewById(R.id.btn_save_pairing_code);
         if (btnSaveCode != null) btnSaveCode.setOnClickListener(this);
+
+        Button btnChangeChild = findViewById(R.id.btn_change_child);
+        if (btnChangeChild != null) btnChangeChild.setOnClickListener(this);
 
         Button btnOverlay = findViewById(R.id.btn_overlay_perm);
         if (btnOverlay != null) btnOverlay.setOnClickListener(this);
@@ -71,6 +90,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
         requestLocationPermissionIfNeeded();
         startCompanionService();
         scanAndUploadInstalledApps();
+    }
+
+    public void updateChildAssignedLabel() {
+        if (tvChildAssigned == null) return;
+        SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
+        String name = prefs.getString("selected_child_name", "Lucas");
+        String avatar = prefs.getString("selected_child_avatar", "👦");
+        tvChildAssigned.setText(avatar + " Asignado a: " + name + " (Este celular pertenece a este hijo/a)");
     }
 
     private void requestLocationPermissionIfNeeded() {
@@ -178,8 +205,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
                  .putString("server_url", srvUrl)
                  .apply();
 
-            Toast.makeText(this, "✅ Código " + code + " guardado con éxito.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "✅ Código " + code + " guardado. Verificando hijos...", Toast.LENGTH_SHORT).show();
             scanAndUploadInstalledApps();
+            fetchFamilyChildren(code, srvUrl);
+
+        } else if (id == R.id.btn_change_child) {
+            String code = etPairingCode.getText().toString().trim();
+            String srvUrl = etServerUrl.getText().toString().trim();
+            if (code.isEmpty()) code = "123456";
+            fetchFamilyChildren(code, srvUrl);
 
         } else if (id == R.id.btn_overlay_perm) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -223,6 +257,145 @@ public class MainActivity extends Activity implements View.OnClickListener {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
         }
+    }
+
+    public void fetchFamilyChildren(final String code, final String srvUrl) {
+        new FetchChildrenThread(this, code, srvUrl).start();
+    }
+
+    public static class FetchChildrenThread extends Thread {
+        private final MainActivity mActivity;
+        private final String mCode;
+        private final String mSrvUrl;
+
+        public FetchChildrenThread(MainActivity activity, String code, String srvUrl) {
+            mActivity = activity;
+            mCode = code;
+            mSrvUrl = srvUrl;
+        }
+
+        @Override
+        public void run() {
+            String[] servers = new String[] {
+                mSrvUrl,
+                "https://segurity.appzplay.online",
+                "http://192.168.1.124:3080"
+            };
+
+            for (String srv : servers) {
+                if (srv == null || srv.isEmpty()) continue;
+                try {
+                    URL url = new URL(srv + "/api/family/children?code=" + mCode);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(3000);
+                    conn.setReadTimeout(3000);
+
+                    if (conn.getResponseCode() == 200) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
+                        }
+                        reader.close();
+                        conn.disconnect();
+
+                        JSONObject root = new JSONObject(sb.toString());
+                        JSONArray children = root.optJSONArray("children");
+
+                        if (children != null && children.length() > 0 && mActivity != null && mActivity.mHandler != null) {
+                            mActivity.mHandler.post(new ShowDialogRunnable(mActivity, children));
+                            return;
+                        }
+                    }
+                    conn.disconnect();
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    public static class ShowDialogRunnable implements Runnable {
+        private final MainActivity mActivity;
+        private final JSONArray mChildren;
+
+        public ShowDialogRunnable(MainActivity activity, JSONArray children) {
+            mActivity = activity;
+            mChildren = children;
+        }
+
+        @Override
+        public void run() {
+            if (mActivity != null) {
+                mActivity.showSelectChildDialog(mChildren);
+            }
+        }
+    }
+
+    public static class ChildDialogClickListener implements DialogInterface.OnClickListener {
+        private final MainActivity mActivity;
+        private final List<String> mIds;
+        private final List<String> mNames;
+        private final List<String> mAvatars;
+
+        public ChildDialogClickListener(MainActivity activity, List<String> ids, List<String> names, List<String> avatars) {
+            mActivity = activity;
+            mIds = ids;
+            mNames = names;
+            mAvatars = avatars;
+        }
+
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+            if (mActivity == null) return;
+            String selectedId = mIds.get(which);
+            String selectedName = mNames.get(which);
+            String selectedAvatar = mAvatars.get(which);
+
+            SharedPreferences prefs = mActivity.getSharedPreferences("norton_prefs", MODE_PRIVATE);
+            prefs.edit()
+                 .putString("selected_child_id", selectedId)
+                 .putString("selected_child_name", selectedName)
+                 .putString("selected_child_avatar", selectedAvatar)
+                 .apply();
+
+            mActivity.updateChildAssignedLabel();
+            Toast.makeText(mActivity, "✅ Celular asignado a: " + selectedAvatar + " " + selectedName, Toast.LENGTH_LONG).show();
+            mActivity.startCompanionService();
+        }
+    }
+
+    private void showSelectChildDialog(final JSONArray children) {
+        try {
+            final List<String> childNames = new ArrayList<String>();
+            final List<String> childIds = new ArrayList<String>();
+            final List<String> childAvatars = new ArrayList<String>();
+
+            for (int i = 0; i < children.length(); i++) {
+                JSONObject c = children.optJSONObject(i);
+                if (c != null) {
+                    String id = c.optString("id", "child_" + i);
+                    String name = c.optString("name", "Hijo");
+                    int age = c.optInt("age", 10);
+                    String avatar = c.optString("avatar", "👦");
+
+                    childIds.add(id);
+                    childNames.add(name);
+                    childAvatars.add(avatar);
+                }
+            }
+
+            CharSequence[] items = new CharSequence[childNames.size()];
+            for (int i = 0; i < childNames.size(); i++) {
+                items[i] = childAvatars.get(i) + "  " + childNames.get(i);
+            }
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("¿A cuál hijo/a pertenece este celular?");
+            builder.setItems(items, new ChildDialogClickListener(this, childIds, childNames, childAvatars));
+            builder.setNegativeButton("Cancelar", null);
+            builder.show();
+        } catch (Exception ignored) {}
     }
 
     private void openAutostartSettings() {

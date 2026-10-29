@@ -284,19 +284,53 @@ public class AccessibilityMonitorService extends AccessibilityService {
         if (event == null || event.getPackageName() == null) return;
         final String pkg = event.getPackageName().toString();
 
-        if (pkg.equals(getPackageName())
-                || pkg.equals("com.android.systemui")
-                || pkg.contains("launcher")
-                || pkg.contains("trebuchet")) {
+        // 1. Pausa Instantánea Activa (Bloqueo total del dispositivo por los padres)
+        if (LockOverlayService.isCurrentlyLocked()) {
+            if (!pkg.equals(getPackageName())) {
+                try {
+                    Intent lockActIntent = new Intent(this, LockActivity.class);
+                    lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    startActivity(lockActIntent);
+                } catch (Exception ignored) {}
+
+                Intent lockIntent = new Intent(this, LockOverlayService.class);
+                lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
+                startService(lockIntent);
+            }
             return;
         }
 
-        // 1. Pausa Instantánea Activa
-        if (LockOverlayService.isCurrentlyLocked()) {
-            performGlobalAction(GLOBAL_ACTION_HOME);
-            Intent lockIntent = new Intent(this, LockOverlayService.class);
-            lockIntent.setAction(LockOverlayService.ACTION_SHOW_LOCK);
-            startService(lockIntent);
+        // Si es nuestra propia app, ignorar
+        if (pkg.equals(getPackageName())) {
+            return;
+        }
+
+        // Protección contra desinstalación o detención en Ajustes del teléfono
+        if (pkg.equals("com.android.settings") || pkg.contains("settings") || pkg.contains("packageinstaller")) {
+            AccessibilityNodeInfo source = event.getSource();
+            if (source != null) {
+                try {
+                    List<AccessibilityNodeInfo> nodes = source.findAccessibilityNodeInfosByText("AppzSegurity");
+                    if (nodes == null || nodes.isEmpty()) {
+                        nodes = source.findAccessibilityNodeInfosByText("Desinstalar");
+                    }
+                    if (nodes != null && !nodes.isEmpty()) {
+                        performGlobalAction(GLOBAL_ACTION_HOME);
+                        if (mHandler != null) {
+                            mHandler.post(new ToastRunnable(this, "🔒 AppzSegurity está protegida contra desinstalación."));
+                        }
+                        return;
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    try { source.recycle(); } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        if (pkg.equals("com.android.systemui")
+                || pkg.contains("launcher")
+                || pkg.contains("trebuchet")) {
             return;
         }
 

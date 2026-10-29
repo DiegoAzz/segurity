@@ -598,6 +598,22 @@ const server = http.createServer(async (req, res) => {
     // 1. DATA Y TELEMETRÍA (AISLADO POR CLIENTE)
     // ==========================================
 
+    // Lista de hijos de la familia para vinculación rápida en Companion APK
+    if (pathname === '/api/family/children' && req.method === 'GET') {
+      const { client, tenantDb } = resolveTenant(req, reqUrl);
+      return sendJson(res, 200, {
+        success: true,
+        familyName: client ? client.name : 'Familia',
+        children: (tenantDb.children || []).map(c => ({
+          id: c.id,
+          name: c.name,
+          age: c.age,
+          avatar: c.avatar,
+          instantLockActive: !!c.instantLockActive
+        }))
+      });
+    }
+
     // Obtener estado completo de la familia
     if (pathname === '/api/data' && req.method === 'GET') {
       const { client, tenantDb } = resolveTenant(req, reqUrl);
@@ -626,7 +642,10 @@ const server = http.createServer(async (req, res) => {
         }
       });
 
-      const activeChild = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0];
+      const targetChildId = reqUrl.searchParams.get('childId');
+      const activeChild = targetChildId
+        ? (tenantDb.children || []).find(c => c.id === targetChildId)
+        : ((tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0]);
       const instantLockActive = activeChild ? !!activeChild.instantLockActive : false;
 
       return sendJson(res, 200, {

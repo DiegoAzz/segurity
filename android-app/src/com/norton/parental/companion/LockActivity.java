@@ -123,6 +123,7 @@ public class LockActivity extends Activity implements View.OnClickListener {
             if (mActivity == null) return;
             SharedPreferences prefs = mActivity.getSharedPreferences("norton_prefs", MODE_PRIVATE);
             String code = prefs.getString("pairing_code", "123456");
+            String childId = prefs.getString("selected_child_id", "child_1");
             String[] servers = new String[] {
                 "https://segurity.appzplay.online",
                 "http://192.168.1.124:3080"
@@ -137,7 +138,7 @@ public class LockActivity extends Activity implements View.OnClickListener {
                     conn.setDoOutput(true);
                     conn.setConnectTimeout(3000);
 
-                    String payload = "{\"code\":\"" + code + "\",\"type\":\"extra_time\",\"requestedMinutes\":30,\"message\":\"El niño solicita tiempo extra o desbloqueo\"}";
+                    String payload = "{\"code\":\"" + code + "\",\"childId\":\"" + childId + "\",\"type\":\"extra_time\",\"requestedMinutes\":30,\"message\":\"El niño solicita tiempo extra o desbloqueo\"}";
                     OutputStream os = conn.getOutputStream();
                     os.write(payload.getBytes("UTF-8"));
                     os.flush();
@@ -258,6 +259,26 @@ public class LockActivity extends Activity implements View.OnClickListener {
         super.onNewIntent(intent);
         setIntent(intent);
         handleIntent(intent);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (LockOverlayService.isCurrentlyLocked() && !mIsTestMode) {
+            Intent lockIntent = new Intent(this, LockActivity.class);
+            lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(lockIntent);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (LockOverlayService.isCurrentlyLocked() && !mIsTestMode) {
+            Intent lockIntent = new Intent(this, LockActivity.class);
+            lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(lockIntent);
+        }
     }
 
     @Override
