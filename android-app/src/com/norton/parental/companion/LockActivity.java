@@ -73,13 +73,42 @@ public class LockActivity extends Activity implements View.OnClickListener {
         } catch (Exception ignored) {}
     }
 
+    public static class AutoUnlockRunnable implements Runnable {
+        private final LockActivity mActivity;
+
+        public AutoUnlockRunnable(LockActivity activity) {
+            mActivity = activity;
+        }
+
+        @Override
+        public void run() {
+            if (mActivity == null || mActivity.isFinishing()) return;
+            if (EnforcementController.isInitialized()) {
+                if (EnforcementController.getInstance().getCurrentState() == EnforcementState.STATE_UNLOCKED) {
+                    mActivity.finish();
+                    return;
+                }
+            }
+            if (mActivity.mHandler != null) {
+                mActivity.mHandler.postDelayed(this, 1000);
+            }
+        }
+    }
+
+    private AutoUnlockRunnable mAutoUnlockChecker = null;
+
     @Override
     protected void onResume() {
         super.onResume();
         if (EnforcementController.isInitialized()) {
             if (EnforcementController.getInstance().getCurrentState() == EnforcementState.STATE_UNLOCKED) {
                 finish();
+                return;
             }
+        }
+        if (mHandler != null) {
+            if (mAutoUnlockChecker == null) mAutoUnlockChecker = new AutoUnlockRunnable(this);
+            mHandler.postDelayed(mAutoUnlockChecker, 1000);
         }
     }
 
@@ -140,7 +169,7 @@ public class LockActivity extends Activity implements View.OnClickListener {
             String childId = prefs.getString("selected_child_id", "child_1");
             String[] servers = new String[] {
                 "https://segurity.appzplay.online",
-                "http://192.168.1.124:3080"
+                "https://segurity.appzplay.online"
             };
 
             for (String srv : servers) {
@@ -300,6 +329,14 @@ public class LockActivity extends Activity implements View.OnClickListener {
     @Override
     protected void onPause() {
         super.onPause();
+        if (mHandler != null) {
+            mHandler.removeCallbacks(mAutoUnlockChecker);
+        }
+        if (isFinishing()) return;
+        if (EnforcementController.isInitialized() && EnforcementController.getInstance().getCurrentState() == EnforcementState.STATE_UNLOCKED) {
+            finish();
+            return;
+        }
         if (LockOverlayService.isCurrentlyLocked() && !mIsTestMode) {
             Intent lockIntent = new Intent(this, LockActivity.class);
             lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -310,6 +347,11 @@ public class LockActivity extends Activity implements View.OnClickListener {
     @Override
     protected void onStop() {
         super.onStop();
+        if (isFinishing()) return;
+        if (EnforcementController.isInitialized() && EnforcementController.getInstance().getCurrentState() == EnforcementState.STATE_UNLOCKED) {
+            finish();
+            return;
+        }
         if (LockOverlayService.isCurrentlyLocked() && !mIsTestMode) {
             Intent lockIntent = new Intent(this, LockActivity.class);
             lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);

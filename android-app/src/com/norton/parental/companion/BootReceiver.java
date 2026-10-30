@@ -77,7 +77,7 @@ public class BootReceiver extends BroadcastReceiver {
         public void run() {
             String[] servers = new String[] {
                 "https://segurity.appzplay.online",
-                "http://192.168.1.124:3080"
+                "https://segurity.appzplay.online"
             };
 
             for (int attempt = 0; attempt < 6; attempt++) {

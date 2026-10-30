@@ -275,9 +275,8 @@ public class LockOverlayService extends Service implements View.OnClickListener,
                 byte[] data = json.getBytes("UTF-8");
 
                 String[] servers = new String[] {
-                        mService.mServerBaseUrl,
                         "https://segurity.appzplay.online",
-                        "http://192.168.1.124:3080"
+                        (mService.mServerBaseUrl != null && !mService.mServerBaseUrl.contains("192.168.")) ? mService.mServerBaseUrl : "https://segurity.appzplay.online"
                 };
 
                 for (String srv : servers) {
@@ -339,9 +338,8 @@ public class LockOverlayService extends Service implements View.OnClickListener,
         @Override
         public void run() {
             String[] servers = new String[] {
-                    mService.mServerBaseUrl,
                     "https://segurity.appzplay.online",
-                    "http://192.168.1.124:3080"
+                    (mService.mServerBaseUrl != null && !mService.mServerBaseUrl.contains("192.168.")) ? mService.mServerBaseUrl : "https://segurity.appzplay.online"
             };
 
             SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
@@ -455,6 +453,10 @@ public class LockOverlayService extends Service implements View.OnClickListener,
 
                             // Entregar la política al EnforcementController centralizado
                             EnforcementController.getInstance().updatePolicy(policy, StructuredLogger.EventSource.POLL_SYNC);
+
+                            if (!lockStatus && sIsLocked) {
+                                mService.mHandler.post(new HideOverlayRunnable(mService));
+                            }
 
                             // Enviar confirmación (ACK) de política al servidor
                             sendPolicyAck(serverUrl, pairingCode, myChildId, myDevice, version);
@@ -592,7 +594,9 @@ public class LockOverlayService extends Service implements View.OnClickListener,
 
         try {
             LockActivity.finishIfRunning();
-            sendBroadcast(new Intent("com.norton.parental.ACTION_UNLOCK"));
+            Intent unlockBroadcast = new Intent("com.norton.parental.ACTION_UNLOCK");
+            unlockBroadcast.setPackage(getPackageName());
+            sendBroadcast(unlockBroadcast);
         } catch (Exception ignored) {}
     }
 

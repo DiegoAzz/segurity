@@ -210,7 +210,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             String[] servers = new String[] {
                 mServerUrl,
                 "https://segurity.appzplay.online",
-                "http://192.168.1.124:3080"
+                "https://segurity.appzplay.online"
             };
 
             for (String srv : servers) {
@@ -422,7 +422,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             String[] servers = new String[] {
                 mSrvUrl,
                 "https://segurity.appzplay.online",
-                "http://192.168.1.124:3080"
+                "https://segurity.appzplay.online"
             };
 
             for (String srv : servers) {
