@@ -53,6 +53,10 @@ public class LockActivity extends Activity implements View.OnClickListener {
     }
 
     public static void unlockEverything(Context context) {
+        if (EnforcementController.isInitialized()) {
+            EnforcementController.getInstance().onParentPinUnlock();
+        }
+
         SharedPreferences prefs = context.getSharedPreferences("norton_prefs", MODE_PRIVATE);
         prefs.edit().putBoolean("was_locked", false).apply();
 
@@ -67,6 +71,16 @@ public class LockActivity extends Activity implements View.OnClickListener {
             unlockBroadcast.setPackage(context.getPackageName());
             context.sendBroadcast(unlockBroadcast);
         } catch (Exception ignored) {}
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (EnforcementController.isInitialized()) {
+            if (EnforcementController.getInstance().getCurrentState() == EnforcementState.STATE_UNLOCKED) {
+                finish();
+            }
+        }
     }
 
     public static class UnlockReceiver extends BroadcastReceiver {

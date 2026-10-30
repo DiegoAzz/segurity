@@ -267,6 +267,13 @@ function saveDatabase(db) {
   }
 }
 
+function bumpPolicyVersion(tenantDb) {
+  if (!tenantDb) return 1;
+  const current = Number(tenantDb.policyVersion) || 1;
+  tenantDb.policyVersion = current + 1;
+  return tenantDb.policyVersion;
+}
+
 let db = loadDatabase();
 
 // Sesiones persistentes (para no perder login ni cuentas al reiniciar)
@@ -809,6 +816,9 @@ const server = http.createServer(async (req, res) => {
         }
       });
 
+      // Garantizar versión monotónica de política
+      tenantDb.policyVersion = tenantDb.policyVersion || 1;
+
       // El estado instantLockActive en la raíz de la respuesta responde únicamente al hijo evaluado
       const instantLockActive = activeChild ? !!activeChild.instantLockActive : false;
 
@@ -1279,8 +1289,9 @@ const server = http.createServer(async (req, res) => {
         };
         if (!tenantDb.activityLogs) tenantDb.activityLogs = [];
         tenantDb.activityLogs.unshift(logEntry);
+        bumpPolicyVersion(tenantDb);
         saveDatabase(db);
-        return sendJson(res, 200, { success: true, instantLockActive: targetState, allLocked: targetState, log: logEntry });
+        return sendJson(res, 200, { success: true, instantLockActive: targetState, allLocked: targetState, policyVersion: tenantDb.policyVersion, log: logEntry });
       }
 
       const childId = body.childId || tenantDb.activeChildId || 'child_user_1';
@@ -1321,9 +1332,10 @@ const server = http.createServer(async (req, res) => {
       if (!tenantDb.activityLogs) tenantDb.activityLogs = [];
       tenantDb.activityLogs.unshift(logEntry);
 
+      bumpPolicyVersion(tenantDb);
       saveDatabase(db);
-      console.log(`[BLOQUEO] Estado para ${child.name} (${child.id}): ${child.instantLockActive ? 'BLOQUEADO' : 'DESBLOQUEADO'}`);
-      return sendJson(res, 200, { success: true, childId: child.id, instantLockActive: child.instantLockActive, child, log: logEntry });
+      console.log(`[BLOQUEO] Estado para ${child.name} (${child.id}): ${child.instantLockActive ? 'BLOQUEADO' : 'DESBLOQUEADO'} (v${tenantDb.policyVersion})`);
+      return sendJson(res, 200, { success: true, childId: child.id, instantLockActive: child.instantLockActive, policyVersion: tenantDb.policyVersion, child, log: logEntry });
     }
 
     // Añadir tiempo extra
@@ -1364,8 +1376,9 @@ const server = http.createServer(async (req, res) => {
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
 
       child.dailyLimitMinutes = Number(body.dailyLimitMinutes);
+      bumpPolicyVersion(tenantDb);
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, child });
+      return sendJson(res, 200, { success: true, policyVersion: tenantDb.policyVersion, child });
     }
 
     // Horario escolar
@@ -1376,8 +1389,9 @@ const server = http.createServer(async (req, res) => {
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
 
       child.schoolTimeActive = body.active !== undefined ? body.active : !child.schoolTimeActive;
+      bumpPolicyVersion(tenantDb);
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, schoolTimeActive: child.schoolTimeActive, child });
+      return sendJson(res, 200, { success: true, schoolTimeActive: child.schoolTimeActive, policyVersion: tenantDb.policyVersion, child });
     }
 
     // Modificar regla de categoría web
@@ -1388,8 +1402,9 @@ const server = http.createServer(async (req, res) => {
       if (!category) return sendJson(res, 404, { error: 'Categoría no encontrada' });
 
       category.action = body.action;
+      bumpPolicyVersion(tenantDb);
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, category });
+      return sendJson(res, 200, { success: true, policyVersion: tenantDb.policyVersion, category });
     }
 
     // SafeSearch
@@ -1400,14 +1415,16 @@ const server = http.createServer(async (req, res) => {
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
 
       child.safeSearchEnabled = body.enabled !== undefined ? body.enabled : !child.safeSearchEnabled;
+      bumpPolicyVersion(tenantDb);
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, safeSearchEnabled: child.safeSearchEnabled });
+      return sendJson(res, 200, { success: true, policyVersion: tenantDb.policyVersion, safeSearchEnabled: child.safeSearchEnabled });
     }
 
     // Regla personalizada web
     if (pathname === '/api/web/rule' && req.method === 'POST') {
       const body = await parseRequestBody(req);
       const { tenantDb } = resolveTenant(req, reqUrl, body);
+      if (!tenantDb) return sendJson(res, 401, { error: 'No autorizado' });
       if (!tenantDb.customWebRules) tenantDb.customWebRules = [];
 
       if (body.action === 'delete') {
@@ -1421,8 +1438,9 @@ const server = http.createServer(async (req, res) => {
         };
         tenantDb.customWebRules.push(newRule);
       }
+      bumpPolicyVersion(tenantDb);
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, customWebRules: tenantDb.customWebRules });
+      return sendJson(res, 200, { success: true, policyVersion: tenantDb.policyVersion, customWebRules: tenantDb.customWebRules });
     }
 
     // Regla de app (Bloquear / Permitir / Limitar)
@@ -1499,8 +1517,30 @@ const server = http.createServer(async (req, res) => {
       if (!tenantDb.activityLogs) tenantDb.activityLogs = [];
       tenantDb.activityLogs.unshift(logEntry);
 
+      bumpPolicyVersion(tenantDb);
       saveDatabase(db);
-      return sendJson(res, 200, { success: true, app, log: logEntry });
+      return sendJson(res, 200, { success: true, app, policyVersion: tenantDb.policyVersion, log: logEntry });
+    }
+
+    // Confirmación de versión de política aplicada por el dispositivo hijo (ACK)
+    if (pathname === '/api/child/policy-ack' && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { tenantDb } = resolveTenant(req, reqUrl, body);
+      if (!tenantDb) return sendJson(res, 401, { error: 'No autorizado' });
+
+      const childId = body.childId || tenantDb.activeChildId || 'child_user_1';
+      const deviceId = body.deviceId || body.device || 'unknown';
+      const appliedVersion = Number(body.policyVersion || body.appliedVersion) || 1;
+
+      if (!tenantDb.policyAcks) tenantDb.policyAcks = {};
+      tenantDb.policyAcks[deviceId] = {
+        childId,
+        policyVersion: appliedVersion,
+        ackedAt: new Date().toISOString()
+      };
+
+      saveDatabase(db);
+      return sendJson(res, 200, { success: true, confirmedVersion: appliedVersion });
     }
 
     // Sincronizar aplicaciones reales instaladas desde el teléfono del hijo

@@ -31,13 +31,18 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
-public class LockOverlayService extends Service implements View.OnClickListener {
+public class LockOverlayService extends Service implements View.OnClickListener, EnforcementController.OverlayHost {
 
     public static final String ACTION_SHOW_LOCK = "ACTION_SHOW_LOCK";
     public static final String ACTION_HIDE_LOCK = "ACTION_HIDE_LOCK";
@@ -55,6 +60,9 @@ public class LockOverlayService extends Service implements View.OnClickListener 
     private double mLastLng = 0;
 
     public static boolean isCurrentlyLocked() {
+        if (EnforcementController.isInitialized()) {
+            return EnforcementController.getInstance().getCurrentState() != EnforcementState.STATE_UNLOCKED;
+        }
         return sIsLocked;
     }
 
@@ -65,12 +73,16 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         mHandler = new Handler(Looper.getMainLooper());
         createNotificationChannel();
 
+        // Inicializar el controlador único de políticas
+        EnforcementController.init(this);
+        EnforcementController.getInstance().setOverlayHost(this);
+
         // Asegurar que el icono principal de la app siempre permanezca visible en el lanzador
         try {
             getPackageManager().setComponentEnabledSetting(
-                new ComponentName(this, MainActivity.class),
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
+                    new ComponentName(this, MainActivity.class),
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
             );
         } catch (Throwable ignored) {}
 
@@ -91,12 +103,8 @@ public class LockOverlayService extends Service implements View.OnClickListener 
             startForeground(101, notification);
         } catch (Throwable ignored) {}
 
-        SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
-        if (prefs.getBoolean("was_locked", false)) {
-            showOverlay(null);
-        }
-
         // Si se acaba de reiniciar, notificar al servidor
+        SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         if (prefs.getBoolean("just_rebooted", false)) {
             new Thread(new BootReceiver.SendRebootAuditTask(this)).start();
         }
@@ -108,6 +116,60 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
         mTelemetryRunnable = new TelemetryRunnable(this);
         mHandler.postDelayed(mTelemetryRunnable, 2000);
+    }
+
+    public static class ShowOverlayRunnable implements Runnable {
+        private final LockOverlayService mService;
+        private final String mMsg;
+
+        public ShowOverlayRunnable(LockOverlayService service, String msg) {
+            mService = service;
+            mMsg = msg;
+        }
+
+        @Override
+        public void run() {
+            if (mService != null) mService.showOverlay(mMsg);
+        }
+    }
+
+    public static class HideOverlayRunnable implements Runnable {
+        private final LockOverlayService mService;
+
+        public HideOverlayRunnable(LockOverlayService service) {
+            mService = service;
+        }
+
+        @Override
+        public void run() {
+            if (mService != null) mService.hideOverlay();
+        }
+    }
+
+    public static class ConsumeTouchListener implements View.OnTouchListener {
+        @Override
+        public boolean onTouch(View v, android.view.MotionEvent event) {
+            return true;
+        }
+    }
+
+    // ==========================================
+    // IMPLEMENTACIÓN DE EnforcementController.OverlayHost
+    // ==========================================
+
+    @Override
+    public void onShowOverlay(final String displayMessage, final int state) {
+        mHandler.post(new ShowOverlayRunnable(this, displayMessage));
+    }
+
+    @Override
+    public void onHideOverlay() {
+        mHandler.post(new HideOverlayRunnable(this));
+    }
+
+    @Override
+    public void onDismissToHome() {
+        AccessibilityMonitorService.triggerHomeAction();
     }
 
     private void initLocationTracker() {
@@ -128,17 +190,8 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 if (mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                     mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 15000, 10, listener, Looper.getMainLooper());
                 }
-
-                Location lastKnown = mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                if (lastKnown == null) {
-                    lastKnown = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                }
-                if (lastKnown != null) {
-                    mLastLat = lastKnown.getLatitude();
-                    mLastLng = lastKnown.getLongitude();
-                }
             }
-        } catch (Exception e) {}
+        } catch (Throwable ignored) {}
     }
 
     public static class AppLocationListener implements LocationListener {
@@ -156,12 +209,9 @@ public class LockOverlayService extends Service implements View.OnClickListener 
             }
         }
 
-        @Override
-        public void onStatusChanged(String provider, int status, Bundle extras) {}
-        @Override
-        public void onProviderEnabled(String provider) {}
-        @Override
-        public void onProviderDisabled(String provider) {}
+        @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+        @Override public void onProviderEnabled(String provider) {}
+        @Override public void onProviderDisabled(String provider) {}
     }
 
     public static class TelemetryRunnable implements Runnable {
@@ -176,7 +226,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
             if (mService != null) {
                 new TelemetryWorker(mService).start();
                 if (mService.mHandler != null) {
-                    mService.mHandler.postDelayed(this, 12000);
+                    mService.mHandler.postDelayed(this, 10000);
                 }
             }
         }
@@ -192,78 +242,38 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         @Override
         public void run() {
             try {
-                // Obtener nivel de batería real vía BatteryManager nativo
-                int batteryLevel = -1;
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        BatteryManager bm = (BatteryManager) mService.getSystemService(Context.BATTERY_SERVICE);
-                        if (bm != null) {
-                            int cap = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-                            if (cap > 0 && cap <= 100) {
-                                batteryLevel = cap;
-                            }
-                        }
+                int level = -1;
+                IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                Intent batteryStatus = mService.registerReceiver(null, ifilter);
+                if (batteryStatus != null) {
+                    int rawLevel = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                    if (scale > 0) {
+                        level = (int) ((rawLevel / (float) scale) * 100);
                     }
-                } catch (Exception ignored) {}
-
-                if (batteryLevel <= 0) {
-                    try {
-                        IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-                        Intent batteryStatus = mService.registerReceiver(null, ifilter);
-                        if (batteryStatus != null) {
-                            int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-                            int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                            if (level >= 0 && scale > 0) {
-                                batteryLevel = (int) ((level / (float) scale) * 100);
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                }
-
-                if (batteryLevel <= 0) {
-                    batteryLevel = 85;
-                }
-
-                double lat = mService.mLastLat;
-                double lng = mService.mLastLng;
-
-                // Intentar leer última ubicación conocida si lat==0
-                if (lat == 0 && lng == 0 && mService.mLocationManager != null) {
-                    try {
-                        Location loc = mService.mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                        if (loc == null) loc = mService.mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                        if (loc != null) {
-                            lat = loc.getLatitude();
-                            lng = loc.getLongitude();
-                            mService.mLastLat = lat;
-                            mService.mLastLng = lng;
-                        }
-                    } catch (SecurityException ignored) {}
                 }
 
                 SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
                 String pairingCode = prefs.getString("pairing_code", "123456");
-                String childId = prefs.getString("selected_child_id", "child_1");
+                String myChildId = prefs.getString("selected_child_id", "");
+                String myDevice = Build.MANUFACTURER + " " + Build.MODEL;
+
+                String json = "{"
+                        + "\"code\":\"" + pairingCode + "\","
+                        + (!myChildId.isEmpty() ? "\"childId\":\"" + myChildId + "\"," : "")
+                        + "\"deviceName\":\"" + myDevice + "\","
+                        + "\"batteryLevel\":" + (level >= 0 ? level : 85) + ","
+                        + "\"os\":\"Android " + Build.VERSION.RELEASE + "\""
+                        + (mService.mLastLat != 0 ? ",\"lat\":" + mService.mLastLat + ",\"lng\":" + mService.mLastLng : "")
+                        + "}";
+
+                byte[] data = json.getBytes("UTF-8");
 
                 String[] servers = new String[] {
-                    mService.mServerBaseUrl,
-                    "https://segurity.appzplay.online",
-                    "http://192.168.1.124:3080"
+                        mService.mServerBaseUrl,
+                        "https://segurity.appzplay.online",
+                        "http://192.168.1.124:3080"
                 };
-
-                StringBuilder payload = new StringBuilder("{");
-                payload.append("\"code\":\"").append(pairingCode).append("\",");
-                payload.append("\"childId\":\"").append(childId).append("\",");
-                payload.append("\"batteryLevel\":").append(batteryLevel).append(",");
-                payload.append("\"deviceName\":\"").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\",");
-                payload.append("\"os\":\"Android ").append(Build.VERSION.RELEASE).append("\"");
-                if (lat != 0 && lng != 0) {
-                    payload.append(",\"lat\":").append(lat);
-                    payload.append(",\"lng\":").append(lng);
-                }
-                payload.append("}");
-
-                byte[] data = payload.toString().getBytes("UTF-8");
 
                 for (String srv : servers) {
                     if (srv == null || srv.isEmpty()) continue;
@@ -289,11 +299,10 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                     } catch (Exception ignored) {}
                 }
 
-                // Sincronizar también la lista de aplicaciones instaladas en segundo plano
                 try {
                     new MainActivity.ScanAppsThread(mService.getPackageManager(), mService.mServerBaseUrl, pairingCode).start();
                 } catch (Exception ignored) {}
-            } catch (Exception e) {}
+            } catch (Exception ignored) {}
         }
     }
 
@@ -309,7 +318,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
             if (mService != null) {
                 new PollWorker(mService).start();
                 if (mService.mHandler != null) {
-                    mService.mHandler.postDelayed(this, 1500);
+                    mService.mHandler.postDelayed(this, 2000);
                 }
             }
         }
@@ -325,9 +334,9 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         @Override
         public void run() {
             String[] servers = new String[] {
-                mService.mServerBaseUrl,
-                "https://segurity.appzplay.online",
-                "http://192.168.1.124:3080"
+                    mService.mServerBaseUrl,
+                    "https://segurity.appzplay.online",
+                    "http://192.168.1.124:3080"
             };
 
             SharedPreferences prefs = mService.getSharedPreferences("norton_prefs", MODE_PRIVATE);
@@ -348,8 +357,8 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                     URL url = new URL(reqUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
-                    conn.setConnectTimeout(1500);
-                    conn.setReadTimeout(1500);
+                    conn.setConnectTimeout(2000);
+                    conn.setReadTimeout(2000);
 
                     if (conn.getResponseCode() == 200) {
                         BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
@@ -361,23 +370,24 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                         reader.close();
                         String json = sb.toString();
 
-                        boolean lockStatus = false;
                         try {
-                            org.json.JSONObject root = new org.json.JSONObject(json);
-                            org.json.JSONArray children = root.optJSONArray("children");
+                            JSONObject root = new JSONObject(json);
+
+                            long version = root.optLong("policyVersion", 1L);
+                            boolean lockStatus = root.optBoolean("instantLockActive", false);
+
+                            JSONArray children = root.optJSONArray("children");
                             if (children != null && children.length() > 0) {
-                                org.json.JSONObject targetChild = null;
-                                // 1. Buscar coincidencia exacta por ID de hijo
+                                JSONObject targetChild = null;
                                 if (!myChildId.isEmpty()) {
                                     for (int i = 0; i < children.length(); i++) {
-                                        org.json.JSONObject c = children.optJSONObject(i);
+                                        JSONObject c = children.optJSONObject(i);
                                         if (c != null && myChildId.equals(c.optString("id", ""))) {
                                             targetChild = c;
                                             break;
                                         }
                                     }
                                 }
-                                // 2. Si no tenía hijo asignado: SÓLO auto-vincular si la familia tiene 1 solo hijo
                                 if (targetChild == null && children.length() == 1) {
                                     targetChild = children.optJSONObject(0);
                                     if (targetChild != null) {
@@ -387,86 +397,108 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                                     }
                                 }
                                 if (targetChild != null) {
-                                    // El estado de bloqueo depende EXCLUSIVAMENTE de este hijo
                                     lockStatus = targetChild.optBoolean("instantLockActive", false);
                                 }
-                            } else if (root.has("instantLockActive")) {
-                                lockStatus = root.optBoolean("instantLockActive", false);
                             }
-                        } catch (Exception parseEx) {
-                            lockStatus = false;
-                        }
 
-                        // Sincronizar también la lista de aplicaciones bloqueadas con AccessibilityMonitorService
-                        try {
-                            org.json.JSONObject rootObj = new org.json.JSONObject(json);
-                            org.json.JSONArray bpArray = rootObj.optJSONArray("blockedPackages");
+                            // Parsear aplicaciones bloqueadas
+                            Set<String> blockedPackages = new HashSet<>();
+                            JSONArray bpArray = root.optJSONArray("blockedPackages");
                             if (bpArray != null) {
-                                java.util.Set<String> pkgs = new java.util.HashSet<String>();
                                 for (int i = 0; i < bpArray.length(); i++) {
                                     String p = bpArray.optString(i, "").trim();
-                                    if (!p.isEmpty()) pkgs.add(p);
+                                    if (!p.isEmpty()) blockedPackages.add(p);
                                 }
-                                AccessibilityMonitorService.updateBlockedPackages(pkgs);
                             }
-                        } catch (Exception ignored) {}
 
-                        if (mService.mHandler != null) {
-                            mService.mHandler.post(new StateUpdater(mService, lockStatus));
+                            // Parsear dominios y palabras clave
+                            Set<String> blockedDomains = new HashSet<>();
+                            JSONArray bdArray = root.optJSONArray("blockedDomains");
+                            if (bdArray != null) {
+                                for (int i = 0; i < bdArray.length(); i++) {
+                                    String d = bdArray.optString(i, "").trim().toLowerCase();
+                                    if (!d.isEmpty()) blockedDomains.add(d);
+                                }
+                            }
+
+                            Set<String> blockedKeywords = new HashSet<>();
+                            JSONArray bkArray = root.optJSONArray("blockedKeywords");
+                            if (bkArray != null) {
+                                for (int i = 0; i < bkArray.length(); i++) {
+                                    String k = bkArray.optString(i, "").trim().toLowerCase();
+                                    if (!k.isEmpty()) blockedKeywords.add(k);
+                                }
+                            }
+
+                            boolean adultBlocked = root.optBoolean("adultBlocked", true);
+                            int dailyLimit = root.optInt("dailyLimitMinutes", 120);
+                            int usedToday = root.optInt("usedTodayMinutes", 0);
+
+                            PolicyModel policy = new PolicyModel(
+                                    version,
+                                    lockStatus,
+                                    blockedPackages,
+                                    blockedDomains,
+                                    blockedKeywords,
+                                    adultBlocked,
+                                    dailyLimit,
+                                    usedToday,
+                                    false,
+                                    false,
+                                    System.currentTimeMillis()
+                            );
+
+                            // Entregar la política al EnforcementController centralizado
+                            EnforcementController.getInstance().updatePolicy(policy, StructuredLogger.EventSource.POLL_SYNC);
+
+                            // Enviar confirmación (ACK) de política al servidor
+                            sendPolicyAck(serverUrl, pairingCode, myChildId, myDevice, version);
+
+                        } catch (Exception parseEx) {
+                            StructuredLogger.logTransition(
+                                    StructuredLogger.EventSource.POLL_SYNC,
+                                    0,
+                                    "-",
+                                    "PARSE_ERROR",
+                                    "-",
+                                    "-",
+                                    StructuredLogger.ApplyResult.ERROR,
+                                    parseEx.getMessage()
+                            );
                         }
+
                         conn.disconnect();
                         break;
-                    } else if (conn.getResponseCode() == 401 || conn.getResponseCode() == 404) {
-                        // Código familiar inválido: No bloquear el teléfono
-                        if (mService.mHandler != null) {
-                            mService.mHandler.post(new StateUpdater(mService, false));
-                        }
                     }
                     conn.disconnect();
-                } catch (Exception e) {}
+                } catch (Exception ignored) {}
             }
         }
-    }
 
-    public static class StateUpdater implements Runnable {
-        private final LockOverlayService mService;
-        private final boolean mIsLocked;
+        private void sendPolicyAck(String serverUrl, String pairingCode, String childId, String deviceName, long version) {
+            try {
+                URL ackUrl = new URL(serverUrl + "/api/child/policy-ack");
+                HttpURLConnection conn = (HttpURLConnection) ackUrl.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(2000);
+                conn.setReadTimeout(2000);
 
-        public StateUpdater(LockOverlayService service, boolean isLocked) {
-            mService = service;
-            mIsLocked = isLocked;
-        }
+                String payload = "{"
+                        + "\"code\":\"" + pairingCode + "\","
+                        + "\"childId\":\"" + childId + "\","
+                        + "\"device\":\"" + deviceName + "\","
+                        + "\"appliedVersion\":" + version
+                        + "}";
 
-        @Override
-        public void run() {
-            if (mService != null) {
-                if (mIsLocked) {
-                    mService.showOverlay(null);
-                } else {
-                    mService.hideOverlay();
-                }
-            }
-        }
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null) {
-            String action = intent.getAction();
-            String blockedReason = intent.getStringExtra("blocked_reason");
-            if (ACTION_SHOW_LOCK.equals(action)) {
-                showOverlay(blockedReason);
-            } else if (ACTION_HIDE_LOCK.equals(action)) {
-                hideOverlay();
-            }
-        }
-        return START_STICKY;
-    }
-
-    public static class ConsumeTouchListener implements View.OnTouchListener {
-        @Override
-        public boolean onTouch(View v, android.view.MotionEvent event) {
-            return true;
+                OutputStream os = conn.getOutputStream();
+                os.write(payload.getBytes("UTF-8"));
+                os.flush();
+                os.close();
+                conn.getResponseCode();
+                conn.disconnect();
+            } catch (Exception ignored) {}
         }
     }
 
@@ -476,12 +508,6 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 TextView tv = mOverlayView.findViewById(R.id.tv_overlay_title);
                 if (tv != null) tv.setText(customMessage);
             }
-            try {
-                Intent lockActIntent = new Intent(this, LockActivity.class);
-                lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                if (customMessage != null) lockActIntent.putExtra("blocked_reason", customMessage);
-                startActivity(lockActIntent);
-            } catch (Exception ignored) {}
             return;
         }
 
@@ -509,7 +535,6 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         mOverlayView = inflater.inflate(R.layout.overlay_lock, null);
 
-        // Consumir el 100% de los toques para que absolutamente nada pase a las apps de atrás
         mOverlayView.setOnTouchListener(new ConsumeTouchListener());
 
         TextView tvTitle = mOverlayView.findViewById(R.id.tv_overlay_title);
@@ -538,22 +563,12 @@ public class LockOverlayService extends Service implements View.OnClickListener 
 
         try {
             mWindowManager.addView(mOverlayView, params);
-        } catch (Exception e) {}
-
-        // Siempre lanzar también LockActivity en pantalla completa por seguridad total
-        try {
-            Intent lockActIntent = new Intent(this, LockActivity.class);
-            lockActIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            if (customMessage != null) {
-                lockActIntent.putExtra("blocked_reason", customMessage);
-            }
-            startActivity(lockActIntent);
         } catch (Exception ignored) {}
 
         try {
             Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
             if (v != null) {
-                v.vibrate(500);
+                v.vibrate(300);
             }
         } catch (Exception ignored) {}
     }
@@ -566,7 +581,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
         if (mOverlayView != null) {
             try {
                 mWindowManager.removeView(mOverlayView);
-            } catch (Exception e) {}
+            } catch (Exception ignored) {}
             mOverlayView = null;
         }
 
@@ -586,7 +601,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 startActivity(callIntent);
             } catch (Exception ignored) {}
         } else if (id == R.id.btn_exit_test) {
-            hideOverlay();
+            EnforcementController.getInstance().onParentPinUnlock();
         } else if (id == R.id.btn_parent_pin_toggle) {
             if (mOverlayView != null) {
                 View container = mOverlayView.findViewById(R.id.ll_pin_container);
@@ -603,7 +618,7 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
                 String code = prefs.getString("pairing_code", "123456");
                 if (pin.equals("1234") || pin.equals(code) || pin.equals("0000")) {
-                    hideOverlay();
+                    EnforcementController.getInstance().onParentPinUnlock();
                 } else {
                     if (tvErr != null) tvErr.setVisibility(View.VISIBLE);
                 }
@@ -655,6 +670,20 @@ public class LockOverlayService extends Service implements View.OnClickListener 
                 manager.createNotificationChannel(channel);
             }
         }
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            String action = intent.getAction();
+            String blockedReason = intent.getStringExtra("blocked_reason");
+            if (ACTION_SHOW_LOCK.equals(action)) {
+                showOverlay(blockedReason);
+            } else if (ACTION_HIDE_LOCK.equals(action)) {
+                hideOverlay();
+            }
+        }
+        return START_STICKY;
     }
 
     @Override
