@@ -30,26 +30,6 @@
         "updatedAt": "Pendiente",
         "zone": "Esperando celular"
       }
-    },
-    {
-      "id": "child_vicky",
-      "name": "Vicky",
-      "age": 10,
-      "avatar": "👧",
-      "dailyLimitMinutes": 120,
-      "usedTodayMinutes": 0,
-      "instantLockActive": false,
-      "safeSearchEnabled": true,
-      "schoolTimeActive": false,
-      "devices": [],
-      "currentLocation": {
-        "lat": 10.3982,
-        "lng": -75.4933,
-        "address": "Esperando primera sincronización GPS...",
-        "battery": 100,
-        "updatedAt": "Pendiente",
-        "zone": "Sin registrar"
-      }
     }
   ],
   "webCategories": [
@@ -881,26 +861,6 @@
                 "usedMinutesToday": 0
               }
             ]
-          },
-          {
-            "id": "child_vicky",
-            "name": "Vicky",
-            "age": 10,
-            "avatar": "👧",
-            "dailyLimitMinutes": 120,
-            "usedTodayMinutes": 0,
-            "instantLockActive": false,
-            "safeSearchEnabled": true,
-            "schoolTimeActive": false,
-            "devices": [],
-            "currentLocation": {
-              "lat": 10.3982,
-              "lng": -75.4933,
-              "address": "Esperando primera sincronización GPS...",
-              "battery": 100,
-              "updatedAt": "Pendiente",
-              "zone": "Sin registrar"
-            }
           }
         ],
         "webCategories": [
@@ -1544,6 +1504,190 @@
             "notifyOnExit": true
           }
         ]
+      }
+    },
+    {
+      "id": "client_1793368727025",
+      "name": "Diego Zuñiga",
+      "email": "diego.zuniga.plazas@gmail.com",
+      "password": "123",
+      "phone": "3137751715",
+      "plan": "1 Mes ($25.000 COP)",
+      "status": "active",
+      "pairingCode": "933193",
+      "createdAt": "2026-10-30T13:58:47.025Z",
+      "expiresAt": "2026-11-29T13:58:47.025Z",
+      "data": {
+        "activeChildId": "child_vicky_diego",
+        "children": [
+          {
+            "id": "child_vicky_diego",
+            "name": "Vicky",
+            "age": 10,
+            "avatar": "👧",
+            "dailyLimitMinutes": 120,
+            "usedTodayMinutes": 0,
+            "instantLockActive": false,
+            "safeSearchEnabled": true,
+            "schoolTimeActive": false,
+            "devices": [
+              {
+                "id": "real_phone_oppo",
+                "name": "OPPO CPH2743",
+                "type": "smartphone",
+                "os": "Android 16",
+                "batteryLevel": 95,
+                "isOnline": true,
+                "lastSeen": "Ahora mismo"
+              }
+            ],
+            "currentLocation": {
+              "lat": 10.3982,
+              "lng": -75.4933,
+              "address": "TransCaribe, Cartagena de Indias",
+              "battery": 95,
+              "updatedAt": "Ahora mismo (GPS en vivo)",
+              "zone": "Ubicación GPS"
+            }
+          }
+        ],
+        "webCategories": [
+          {
+            "id": "cat_adult",
+            "name": "Contenido para Adultos / Pornografía",
+            "icon": "🔞",
+            "description": "Sitios con material explícito, desnudez y pornografía.",
+            "riskLevel": "high",
+            "action": "blocked",
+            "keywords": [
+              "porn",
+              "xxx",
+              "adult",
+              "sex",
+              "erotic"
+            ]
+          },
+          {
+            "id": "cat_violence",
+            "name": "Violencia, Odio y Armas",
+            "icon": "⚔️",
+            "description": "Material violento, armas de fuego, racismo e incitación al odio.",
+            "riskLevel": "high",
+            "action": "blocked",
+            "keywords": [
+              "weapons",
+              "guns",
+              "gore",
+              "violence",
+              "hate"
+            ]
+          },
+          {
+            "id": "cat_gambling",
+            "name": "Apuestas y Juegos de Azar",
+            "icon": "🎰",
+            "description": "Casinos online, apuestas deportivas, póker y ruletas virtuales.",
+            "riskLevel": "high",
+            "action": "blocked",
+            "keywords": [
+              "casino",
+              "bet365",
+              "poker",
+              "slots",
+              "gamble",
+              "apuestas"
+            ]
+          },
+          {
+            "id": "cat_drugs",
+            "name": "Drogas, Tabaco y Sustancias",
+            "icon": "💊",
+            "description": "Venta y promoción de estupefacientes, vapeo y alcohol para menores.",
+            "riskLevel": "high",
+            "action": "blocked",
+            "keywords": [
+              "drugs",
+              "vape",
+              "weed",
+              "alcohol",
+              "liquor"
+            ]
+          },
+          {
+            "id": "cat_social",
+            "name": "Redes Sociales",
+            "icon": "💬",
+            "description": "Intercambio de mensajes, fotos y perfiles públicos.",
+            "riskLevel": "medium",
+            "action": "warning",
+            "keywords": [
+              "instagram",
+              "tiktok",
+              "twitter",
+              "facebook",
+              "snapchat"
+            ]
+          },
+          {
+            "id": "cat_gaming",
+            "name": "Videojuegos Online",
+            "icon": "🎮",
+            "description": "Portales de juegos en navegador, servidores de juego y streams.",
+            "riskLevel": "medium",
+            "action": "allowed",
+            "keywords": [
+              "roblox",
+              "twitch",
+              "poki",
+              "steam",
+              "minecraft"
+            ]
+          },
+          {
+            "id": "cat_shopping",
+            "name": "Compras y Tiendas en Línea",
+            "icon": "🛍️",
+            "description": "Sitios con pasarelas de pago y tarjetas de crédito.",
+            "riskLevel": "medium",
+            "action": "warning",
+            "keywords": [
+              "amazon",
+              "aliexpress",
+              "shein",
+              "ebay",
+              "shop"
+            ]
+          },
+          {
+            "id": "cat_education",
+            "name": "Educación y Ciencias",
+            "icon": "📚",
+            "description": "Enciclopedias, plataformas escolares y portales educativos.",
+            "riskLevel": "low",
+            "action": "allowed",
+            "keywords": [
+              "wikipedia",
+              "khanacademy",
+              "duolingo",
+              "edu",
+              "scratch"
+            ]
+          }
+        ],
+        "requests": [],
+        "activityLogs": [
+          {
+            "id": "log_1793376687286",
+            "childId": "child_vicky_diego",
+            "type": "device",
+            "title": "🎉 ¡Celular y Aplicaciones Sincronizadas!",
+            "details": "Se activaron las aplicaciones del celular OPPO CPH2743 para el perfil de Vicky.",
+            "status": "allowed",
+            "timestamp": "Hoy, 11:11"
+          }
+        ],
+        "monitoredApps": [],
+        "customWebRules": []
       }
     }
   ],
