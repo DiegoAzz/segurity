@@ -407,11 +407,17 @@ const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.wasm': 'application/wasm',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
   '.apk': 'application/vnd.android.package-archive'
 };
 
@@ -1954,8 +1960,14 @@ const server = http.createServer(async (req, res) => {
     return res.end('Acceso denegado');
   }
 
-  // Fallback seguro si el archivo no existe
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+  // Fallback seguro si el archivo no existe o es un directorio
+  if (pathname === '/legacy') {
+    filePath = path.join(PUBLIC_DIR, 'index-legacy.html');
+  } else if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+    const indexPath = path.join(filePath, 'index.html');
+    if (fs.existsSync(indexPath)) filePath = indexPath;
+  }
+  if (!fs.existsSync(filePath)) {
     filePath = path.join(PUBLIC_DIR, 'index.html');
   }
 
