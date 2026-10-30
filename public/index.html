@@ -1191,6 +1191,56 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: EDITAR HIJO/A ================= -->
+  <div id="editChildModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#161F30] border border-[#283548] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="text-2xl">✏️</span>
+          <div>
+            <h3 class="font-display font-bold text-lg text-white">Editar Perfil de Hijo/a</h3>
+            <p class="text-xs text-slate-400">Modifica el nombre o avatar de este perfil</p>
+          </div>
+        </div>
+        <button onclick="closeEditChildModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+
+      <input type="hidden" id="editChildId">
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-300">Nombre del Hijo o Hija</label>
+          <input type="text" id="editChildName" placeholder="Ej: Vicky, Sofía, Lucas..." class="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#FFB800]">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-300">Edad</label>
+          <input type="number" id="editChildAge" value="10" min="3" max="18" class="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#FFB800]">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-300">Seleccionar Avatar</label>
+          <div class="flex items-center space-x-2 mt-1.5" id="editChildAvatarSelector">
+            <button type="button" onclick="selectEditChildAvatar('👧')" class="avatar-opt p-2 rounded-xl border border-amber-400 bg-amber-400/20 text-xl">👧</button>
+            <button type="button" onclick="selectEditChildAvatar('👦')" class="avatar-opt p-2 rounded-xl border border-slate-700 bg-slate-800 text-xl">👦</button>
+            <button type="button" onclick="selectEditChildAvatar('👧🏻')" class="avatar-opt p-2 rounded-xl border border-slate-700 bg-slate-800 text-xl">👧🏻</button>
+            <button type="button" onclick="selectEditChildAvatar('🧒')" class="avatar-opt p-2 rounded-xl border border-slate-700 bg-slate-800 text-xl">🧒</button>
+            <button type="button" onclick="selectEditChildAvatar('👱‍♀️')" class="avatar-opt p-2 rounded-xl border border-slate-700 bg-slate-800 text-xl">👱‍♀️</button>
+            <button type="button" onclick="selectEditChildAvatar('👶')" class="avatar-opt p-2 rounded-xl border border-slate-700 bg-slate-800 text-xl">👶</button>
+          </div>
+          <input type="hidden" id="editChildAvatar" value="👧">
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeEditChildModal()" class="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white">Cancelar</button>
+        <button onclick="submitEditChild()" id="btnSaveEditChild" class="px-5 py-2.5 bg-[#FFB800] hover:bg-[#E5A600] text-black font-extrabold text-xs rounded-xl shadow-md transition flex items-center space-x-1.5">
+          <span>Guardar Cambios</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= JAVASCRIPT APPLICATION CORE ================= -->
   <script>
     // Global State
@@ -1381,6 +1431,11 @@
                   const isCur = c.id === active.id;
                   const bg = isCur ? 'bg-amber-400/15 border border-amber-400/30 text-white font-bold' : 'text-slate-300 hover:bg-slate-800/80 hover:text-white border border-transparent';
                   const check = isCur ? '<span class="text-amber-400 text-xs font-black">✓</span>' : '';
+                  const editBtn = `
+                    <button type="button" onclick="event.stopPropagation(); openEditChildModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.age || 10}, '${c.avatar || '👧'}'); closeAllChildDropdowns();" class="p-1 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-amber-400/10 transition ml-1" title="Editar este perfil de hijo">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    </button>
+                  `;
                   const deleteBtn = children.length > 1 ? `
                     <button type="button" onclick="event.stopPropagation(); deleteChildProfile('${c.id}', '${c.name.replace(/'/g, "\\'")}');" class="p-1 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition ml-1" title="Eliminar este perfil de hijo">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -1400,6 +1455,7 @@
                       </button>
                       <div class="flex items-center space-x-1">
                         ${check}
+                        ${editBtn}
                         ${deleteBtn}
                       </div>
                     </div>
@@ -1459,6 +1515,66 @@
       document.getElementById('newChildLimit').value = '120';
       selectNewChildAvatar('👧');
       document.getElementById('addChildModal').classList.remove('hidden');
+    }
+
+    function openEditChildModal(childId, name, age, avatar) {
+      document.getElementById('editChildId').value = childId;
+      document.getElementById('editChildName').value = name;
+      document.getElementById('editChildAge').value = age || 10;
+      document.getElementById('editChildAvatar').value = avatar || '👧';
+      selectEditChildAvatar(avatar || '👧');
+      document.getElementById('editChildModal').classList.remove('hidden');
+    }
+
+    function closeEditChildModal() {
+      document.getElementById('editChildModal').classList.add('hidden');
+    }
+
+    function selectEditChildAvatar(emoji) {
+      document.getElementById('editChildAvatar').value = emoji;
+      document.querySelectorAll('#editChildAvatarSelector .avatar-opt').forEach(btn => {
+        if (btn.innerText.trim() === emoji) {
+          btn.className = 'avatar-opt p-2 rounded-xl border border-amber-400 bg-amber-400/20 text-xl';
+        } else {
+          btn.className = 'avatar-opt p-2 rounded-xl border border-slate-700 bg-slate-800 text-xl';
+        }
+      });
+    }
+
+    async function submitEditChild() {
+      const childId = document.getElementById('editChildId').value;
+      const name = document.getElementById('editChildName').value.trim();
+      const age = parseInt(document.getElementById('editChildAge').value) || 10;
+      const avatar = document.getElementById('editChildAvatar').value || '👧';
+
+      if (!name) {
+        return showToast('Por favor escribe el nombre.', 'danger');
+      }
+
+      const btn = document.getElementById('btnSaveEditChild');
+      btn.disabled = true;
+      btn.innerText = 'Guardando...';
+
+      try {
+        const res = await fetch('/api/children/update', {
+          method: 'POST',
+          headers: getApiHeaders(),
+          body: JSON.stringify({ childId, name, age, avatar })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`¡Perfil actualizado a "${name}" con éxito!`, 'success');
+          closeEditChildModal();
+          await fetchInitialData();
+        } else {
+          showToast(data.error || 'Error al actualizar perfil.', 'danger');
+        }
+      } catch (e) {
+        showToast('Error de conexión al guardar cambios.', 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Guardar Cambios';
+      }
     }
 
     function closeAddChildModal() {

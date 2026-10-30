@@ -1045,6 +1045,34 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { success: true, child: newChild, children: tenantDb.children });
     }
 
+    // Editar perfil de hijo existente (Nombre, edad, avatar)
+    if (pathname === '/api/children/update' && req.method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { tenantDb } = resolveTenant(req, reqUrl, body);
+      if (!tenantDb) return sendJson(res, 401, { error: 'No autorizado o familia no encontrada' });
+
+      const childId = body.childId || body.id;
+      const child = (tenantDb.children || []).find(c => c.id === childId);
+      if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
+
+      if (body.name) child.name = body.name.trim();
+      if (body.age !== undefined) child.age = Number(body.age);
+      if (body.avatar) child.avatar = body.avatar;
+
+      if (Array.isArray(db.children)) {
+        const rootChild = db.children.find(c => c.id === child.id);
+        if (rootChild) {
+          if (body.name) rootChild.name = child.name;
+          if (body.age !== undefined) rootChild.age = child.age;
+          if (body.avatar) rootChild.avatar = child.avatar;
+        }
+      }
+
+      saveDatabase(db);
+      console.log([HIJOS] Perfil actualizado:  (a) para \);
+      return sendJson(res, 200, { success: true, child, children: tenantDb.children });
+    }
+
     // Limpiar todos los datos de ejemplo (Reset a limpio)
     if (pathname === '/api/children/clean-slate' && req.method === 'POST') {
       const body = await parseRequestBody(req);
