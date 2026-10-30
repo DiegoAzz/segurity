@@ -10,11 +10,19 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+/**
+ * Receptor de Reinicio del Sistema (Anti-Bypass por Apagado / Reinicio).
+ *
+ * Si el dispositivo estaba bloqueado antes de reiniciar:
+ * 1. Lanza inmediatamente LockActivity al frente para bloquear la pantalla antes del launcher.
+ * 2. Reanuda LockOverlayService en primer plano de forma segura.
+ * 3. Reporta el evento de reinicio al servidor para auditoría parental.
+ */
 public class BootReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (intent == null) return;
+        if (context == null || intent == null) return;
         String action = intent.getAction();
 
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)
@@ -23,19 +31,38 @@ public class BootReceiver extends BroadcastReceiver {
                 || Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action)) {
 
             // 1. Guardar flag persistente de reinicio detectado
-            SharedPreferences prefs = context.getSharedPreferences("norton_prefs", Context.MODE_PRIVATE);
-            prefs.edit().putBoolean("just_rebooted", true).apply();
+            try {
+                SharedPreferences prefs = context.getSharedPreferences("norton_prefs", Context.MODE_PRIVATE);
+                prefs.edit().putBoolean("just_rebooted", true).apply();
+            } catch (Throwable ignored) {}
 
-            // 2. Reanudar inmediatamente el servicio de bloqueo en primer plano
-            Intent serviceIntent = new Intent(context, LockOverlayService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);
-            } else {
-                context.startService(serviceIntent);
-            }
+            // 2. ANTI-BYPASS: Si el dispositivo estaba bloqueado antes del reinicio,
+            // forzar inmediatamente LockActivity al frente sin esperar a que cargue el launcher.
+            try {
+                SharedPreferences cache = context.getSharedPreferences("norton_policy_cache", Context.MODE_PRIVATE);
+                boolean wasLocked = cache.getBoolean("instant_lock", false);
+                if (wasLocked) {
+                    Intent lockIntent = new Intent(context, LockActivity.class);
+                    lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    lockIntent.putExtra("blocked_reason", "🚨 Dispositivo Bloqueado por Control Parental");
+                    context.startActivity(lockIntent);
+                }
+            } catch (Throwable ignored) {}
 
-            // 3. Notificar al servidor en hilo con reintentos para dar tiempo a que Wi-Fi o Datos conecten
-            new Thread(new SendRebootAuditTask(context)).start();
+            // 3. Reanudar el servicio de supervisión en primer plano con manejo seguro de excepciones Android 14+
+            try {
+                Intent serviceIntent = new Intent(context, LockOverlayService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent);
+                } else {
+                    context.startService(serviceIntent);
+                }
+            } catch (Throwable ignored) {}
+
+            // 4. Notificar al servidor en hilo secundario con reintentos para dar tiempo a conexión de red
+            try {
+                new Thread(new SendRebootAuditTask(context)).start();
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -53,7 +80,6 @@ public class BootReceiver extends BroadcastReceiver {
                 "http://192.168.1.124:3080"
             };
 
-            // Intentar hasta 6 veces esperando que la antena de red esté activa
             for (int attempt = 0; attempt < 6; attempt++) {
                 try {
                     Thread.sleep(attempt == 0 ? 3000 : 5000);

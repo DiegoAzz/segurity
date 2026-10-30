@@ -763,9 +763,13 @@ const server = http.createServer(async (req, res) => {
             d.name.toLowerCase().includes(deviceParam.toLowerCase().trim())
           ))
         );
-        // Si es el teléfono OPPO de la hija
+        // Si la familia tiene 1 único hijo, ese es el dueño del dispositivo
+        if (!foundByDevice && (tenantDb.children || []).length === 1) {
+          foundByDevice = (tenantDb.children || [])[0];
+        }
+        // Si es el teléfono OPPO de la hija (tolerar Vicky, Vikcy, etc.)
         if (!foundByDevice && (deviceParam.includes('CPH2743') || deviceParam.toLowerCase().includes('oppo'))) {
-          foundByDevice = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vicky'));
+          foundByDevice = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vick') || c.name.toLowerCase().includes('vikc'));
         }
         // Si es el CP20S de Mi Hijo
         if (!foundByDevice && (deviceParam.includes('CP20S') || deviceParam.toLowerCase().includes('incar'))) {
@@ -778,14 +782,12 @@ const server = http.createServer(async (req, res) => {
       
       if (!activeChild) {
         if (isApkRequest) {
-          // Solicitudes del celular APK: SOLO auto-asignar si la familia tiene 1 único hijo
           if ((tenantDb.children || []).length === 1) {
             activeChild = (tenantDb.children || [])[0];
-          } else {
-            activeChild = null;
+          } else if (tenantDb.activeChildId) {
+            activeChild = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId);
           }
         } else {
-          // Solicitudes de la web de los padres: usar el hijo que están viendo en pantalla
           activeChild = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0];
         }
       }
@@ -915,14 +917,20 @@ const server = http.createServer(async (req, res) => {
       const targetChildId = body.childId || reqUrl.searchParams.get('childId');
       let child = null;
 
-      // Si la telemetría proviene del teléfono OPPO, vincular directamente al perfil de Vicky
-      if (body.deviceName && (body.deviceName.includes('CPH2743') || body.deviceName.toLowerCase().includes('oppo'))) {
-        child = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vicky'));
-      } else if (targetChildId) {
+      if (targetChildId) {
         child = (tenantDb.children || []).find(c => c.id === targetChildId || (targetChildId === 'child_1' && c.id === 'child_user_1'));
       }
+      if (!child && body.deviceName) {
+        child = (tenantDb.children || []).find(c => (c.devices || []).some(d => d.name && (d.name.toLowerCase() === body.deviceName.toLowerCase() || body.deviceName.toLowerCase().includes(d.name.toLowerCase()))));
+      }
+      if (!child && (tenantDb.children || []).length === 1) {
+        child = (tenantDb.children || [])[0];
+      }
+      if (!child && body.deviceName && (body.deviceName.includes('CPH2743') || body.deviceName.toLowerCase().includes('oppo'))) {
+        child = (tenantDb.children || []).find(c => c.id === 'child_vicky' || c.name.toLowerCase().includes('vick') || c.name.toLowerCase().includes('vikc'));
+      }
       if (!child) {
-        child = (tenantDb.children || []).find(c => c.id === 'child_user_1') || (tenantDb.children || [])[0];
+        child = (tenantDb.children || []).find(c => c.id === tenantDb.activeChildId) || (tenantDb.children || [])[0];
       }
       
       if (child) {

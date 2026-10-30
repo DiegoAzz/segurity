@@ -103,6 +103,11 @@ public class LockOverlayService extends Service implements View.OnClickListener,
             startForeground(101, notification);
         } catch (Throwable ignored) {}
 
+        // Anti-Bypass por reinicio: si el controlador arrancó bloqueado, forzar overlay de inmediato
+        if (EnforcementController.getInstance().getCurrentState() != EnforcementState.STATE_UNLOCKED) {
+            showOverlay("🚨 Dispositivo Bloqueado por Control Parental");
+        }
+
         // Si se acaba de reiniciar, notificar al servidor
         SharedPreferences prefs = getSharedPreferences("norton_prefs", MODE_PRIVATE);
         if (prefs.getBoolean("just_rebooted", false)) {

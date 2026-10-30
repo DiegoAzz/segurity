@@ -2,9 +2,14 @@ package com.norton.parental.companion;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Single Authoritative Execution Coordinator for FamilyGuard / AppzSegurity.
@@ -15,8 +20,18 @@ import android.os.Looper;
  * - Strict deduplication to eliminate flickering
  * - Anti-loop reentrancy guards
  * - Stale version rejection
+ * - Anti-reboot bypass: persists and restores policy & lock state across device power cycles
  */
 public final class EnforcementController {
+
+    private static final String PREFS_POLICY = "norton_policy_cache";
+    private static final String KEY_VERSION = "policy_version";
+    private static final String KEY_INSTANT_LOCK = "instant_lock";
+    private static final String KEY_BLOCKED_PACKAGES = "blocked_packages";
+    private static final String KEY_DAILY_LIMIT = "daily_limit";
+    private static final String KEY_USED_TODAY = "used_today";
+    private static final String KEY_BEDTIME = "bedtime_active";
+    private static final String KEY_SCHOOL = "school_active";
 
     private static EnforcementController sInstance = null;
 
@@ -58,15 +73,27 @@ public final class EnforcementController {
 
     private EnforcementController(Context context) {
         mAppContext = context;
-        mCurrentPolicy = PolicyModel.createDefault();
+
+        // Cargar política persistida desde disco (Anti-Bypass de reinicio)
+        mCurrentPolicy = loadPolicyFromPrefs(context);
 
         HandlerThread thread = new HandlerThread("FamilyGuard-EnforcementQueue");
         thread.start();
         mSerialHandler = new Handler(thread.getLooper());
+
+        // Si antes de reiniciar el celular estaba bloqueado, restaurar de inmediato el estado
+        if (mCurrentPolicy.isInstantLockActive()) {
+            mCurrentState = EnforcementState.STATE_FULL_DEVICE_LOCKED;
+            applyEnforcementToUi("🚨 Dispositivo Bloqueado por Control Parental", mCurrentState);
+        }
     }
 
     public synchronized void setOverlayHost(OverlayHost host) {
         mOverlayHost = host;
+        // Si ya arrancamos bloqueados en frío, forzar el overlay en cuanto el host se conecte
+        if (mCurrentState != EnforcementState.STATE_UNLOCKED && mOverlayHost != null) {
+            mOverlayHost.onShowOverlay("🚨 Dispositivo Bloqueado por Control Parental", mCurrentState);
+        }
     }
 
     public PolicyModel getCurrentPolicy() {
@@ -79,6 +106,74 @@ public final class EnforcementController {
 
     public String getCurrentEnforcingPackage() {
         return mCurrentEnforcingPackage;
+    }
+
+    // =========================================================================
+    // PERSISTENCIA LOCAL (ANTI-BYPASS POR REINICIO O APAGADO)
+    // =========================================================================
+
+    private void savePolicyToPrefs(PolicyModel policy, int state) {
+        if (mAppContext == null || policy == null) return;
+        try {
+            SharedPreferences prefs = mAppContext.getSharedPreferences(PREFS_POLICY, Context.MODE_PRIVATE);
+            StringBuilder sb = new StringBuilder();
+            if (policy.getBlockedPackages() != null) {
+                for (String p : policy.getBlockedPackages()) {
+                    if (sb.length() > 0) sb.append(",");
+                    sb.append(p);
+                }
+            }
+            boolean shouldLock = policy.isInstantLockActive() || state == EnforcementState.STATE_FULL_DEVICE_LOCKED;
+            prefs.edit()
+                    .putLong(KEY_VERSION, policy.getPolicyVersion())
+                    .putBoolean(KEY_INSTANT_LOCK, shouldLock)
+                    .putString(KEY_BLOCKED_PACKAGES, sb.toString())
+                    .putInt(KEY_DAILY_LIMIT, policy.getDailyLimitMinutes())
+                    .putInt(KEY_USED_TODAY, policy.getUsedTodayMinutes())
+                    .putBoolean(KEY_BEDTIME, policy.isBedtimeActive())
+                    .putBoolean(KEY_SCHOOL, policy.isSchoolTimeActive())
+                    .apply();
+        } catch (Throwable ignored) {}
+    }
+
+    private PolicyModel loadPolicyFromPrefs(Context context) {
+        if (context == null) return PolicyModel.createDefault();
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_POLICY, Context.MODE_PRIVATE);
+            if (!prefs.contains(KEY_VERSION)) {
+                return PolicyModel.createDefault();
+            }
+            long version = prefs.getLong(KEY_VERSION, 1L);
+            boolean instantLock = prefs.getBoolean(KEY_INSTANT_LOCK, false);
+            String rawPkgs = prefs.getString(KEY_BLOCKED_PACKAGES, "");
+            Set<String> blocked = new HashSet<>();
+            if (rawPkgs != null && !rawPkgs.isEmpty()) {
+                String[] parts = rawPkgs.split(",");
+                for (String p : parts) {
+                    if (!p.trim().isEmpty()) blocked.add(p.trim());
+                }
+            }
+            int dailyLimit = prefs.getInt(KEY_DAILY_LIMIT, 120);
+            int usedToday = prefs.getInt(KEY_USED_TODAY, 0);
+            boolean bedtime = prefs.getBoolean(KEY_BEDTIME, false);
+            boolean school = prefs.getBoolean(KEY_SCHOOL, false);
+
+            return new PolicyModel(
+                    version,
+                    instantLock,
+                    blocked,
+                    Collections.emptySet(),
+                    Collections.emptySet(),
+                    true,
+                    dailyLimit,
+                    usedToday,
+                    bedtime,
+                    school,
+                    System.currentTimeMillis()
+            );
+        } catch (Throwable t) {
+            return PolicyModel.createDefault();
+        }
     }
 
     // =========================================================================
@@ -116,6 +211,9 @@ public final class EnforcementController {
 
             final long prevVersion = mController.mCurrentPolicy.getPolicyVersion();
             mController.mCurrentPolicy = mNewPolicy;
+
+            // Persistir inmediatamente a SharedPreferences para que sobreviva a reinicios
+            mController.savePolicyToPrefs(mNewPolicy, mController.mCurrentState);
 
             StructuredLogger.logTransition(
                     mSource,
@@ -204,6 +302,9 @@ public final class EnforcementController {
             final int prevState = mController.mCurrentState;
             mController.mCurrentState = EnforcementState.STATE_UNLOCKED;
             mController.mCurrentEnforcingPackage = "";
+
+            // Guardar desbloqueo en persistencia local
+            mController.savePolicyToPrefs(mController.mCurrentPolicy, mController.mCurrentState);
 
             StructuredLogger.logTransition(
                     StructuredLogger.EventSource.USER_PIN_GATE,
@@ -304,6 +405,9 @@ public final class EnforcementController {
             mCurrentEnforcingPackage = targetPackage != null ? targetPackage : "";
             mLastEnforcementTimeMs = System.currentTimeMillis();
 
+            // Guardar estado en persistencia local
+            savePolicyToPrefs(mCurrentPolicy, mCurrentState);
+
             StructuredLogger.logTransition(
                     source,
                     decision.getPolicyVersion(),
@@ -325,6 +429,8 @@ public final class EnforcementController {
                 mCurrentState = EnforcementState.STATE_UNLOCKED;
                 mCurrentEnforcingPackage = "";
 
+                savePolicyToPrefs(mCurrentPolicy, mCurrentState);
+
                 StructuredLogger.logTransition(
                         source,
                         decision.getPolicyVersion(),
@@ -344,6 +450,8 @@ public final class EnforcementController {
                 if (!mCurrentPolicy.isInstantLockActive()) {
                     mCurrentState = EnforcementState.STATE_UNLOCKED;
                     mCurrentEnforcingPackage = "";
+
+                    savePolicyToPrefs(mCurrentPolicy, mCurrentState);
 
                     StructuredLogger.logTransition(
                             source,
