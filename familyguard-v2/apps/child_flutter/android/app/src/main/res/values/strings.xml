@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FamilyGuard Companion</string>
+    <string name="accessibility_service_name">FamilyGuard Protección Activa</string>
+    <string name="accessibility_service_description">Permite a FamilyGuard supervisar el uso de aplicaciones y proteger el dispositivo del menor según las reglas establecidas por los padres.</string>
+</resources>

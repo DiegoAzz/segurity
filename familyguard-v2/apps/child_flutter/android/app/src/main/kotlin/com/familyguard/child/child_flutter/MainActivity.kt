@@ -2,6 +2,8 @@ package com.familyguard.child.child_flutter
 
 import android.app.AppOpsManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -61,9 +63,69 @@ class MainActivity : FlutterActivity() {
                     val diag = mapOf(
                         "hasUsageStats" to hasUsageStatsPermission(),
                         "hasOverlay" to hasOverlayPermission(),
-                        "isBatteryIgnored" to isBatteryOptimizationIgnored()
+                        "isBatteryIgnored" to isBatteryOptimizationIgnored(),
+                        "hasAccessibility" to isAccessibilityServiceEnabled()
                     )
                     result.success(diag)
+                }
+
+                "requestUsageStats" -> {
+                    try {
+                        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+
+                "requestOverlay" -> {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:$packageName")
+                            )
+                            startActivity(intent)
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+
+                "requestBatteryOptimization" -> {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val intent = Intent(
+                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:$packageName")
+                            )
+                            startActivity(intent)
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+
+                "requestAccessibility" -> {
+                    try {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+
+                "getDeviceInfo" -> {
+                    val info = mapOf(
+                        "model" to Build.MODEL,
+                        "manufacturer" to Build.MANUFACTURER,
+                        "androidVersion" to Build.VERSION.RELEASE,
+                        "sdkInt" to Build.VERSION.SDK_INT,
+                        "fingerprint" to Build.FINGERPRINT
+                    )
+                    result.success(info)
                 }
 
                 else -> {
@@ -107,5 +169,11 @@ class MainActivity : FlutterActivity() {
         } else {
             true
         }
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val expectedServiceName = "$packageName/${com.familyguard.child.child_flutter.service.FamilyGuardAccessibilityService::class.java.canonicalName}"
+        val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
+        return enabledServices.contains(packageName)
     }
 }
