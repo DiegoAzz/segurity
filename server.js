@@ -1052,7 +1052,10 @@ const server = http.createServer(async (req, res) => {
       if (!tenantDb) return sendJson(res, 401, { error: 'No autorizado o familia no encontrada' });
 
       const childId = body.childId || body.id;
-      const child = (tenantDb.children || []).find(c => c.id === childId);
+      let child = (tenantDb.children || []).find(c => c.id === childId);
+      if (!child && (tenantDb.children || []).length === 1) {
+        child = tenantDb.children[0];
+      }
       if (!child) return sendJson(res, 404, { error: 'Hijo no encontrado' });
 
       if (body.name) child.name = body.name.trim();

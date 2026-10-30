@@ -1556,20 +1556,29 @@
       btn.innerText = 'Guardando...';
 
       try {
-        const res = await fetch('/api/children/update', {
+        const res = await authFetch('/api/children/update', {
           method: 'POST',
-          headers: getApiHeaders(),
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ childId, name, age, avatar })
         });
         const data = await res.json();
-        if (res.ok && data.success) {
-          showToast(`¡Perfil actualizado a "${name}" con éxito!`, 'success');
+        if (res.ok && data.success && data.child) {
+          if (Array.isArray(appData.children)) {
+            const idx = appData.children.findIndex(c => c.id === childId);
+            if (idx !== -1) {
+              appData.children[idx].name = data.child.name;
+              appData.children[idx].age = data.child.age;
+              appData.children[idx].avatar = data.child.avatar;
+            }
+          }
           closeEditChildModal();
-          await fetchInitialData();
+          renderAll();
+          showToast(`✅ ¡Perfil actualizado a "${name}" con éxito!`, 'success');
         } else {
           showToast(data.error || 'Error al actualizar perfil.', 'danger');
         }
       } catch (e) {
+        console.error(e);
         showToast('Error de conexión al guardar cambios.', 'danger');
       } finally {
         btn.disabled = false;
