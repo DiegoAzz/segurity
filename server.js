@@ -334,7 +334,21 @@ function resolveTenant(req, reqUrl, body = {}) {
     matchedClient = db.clients.find(c => c.id === session.clientId);
   }
 
-  // 4. Fallback por compatibilidad: primer cliente (cliente por defecto)
+  // 3.5. Si se envía childId o requestedChildId, asociar directamente con la familia dueña de ese hijo
+  const requestedChildId = reqUrl.searchParams.get('childId') || body.childId;
+  if (!matchedClient && requestedChildId && Array.isArray(db.clients)) {
+    matchedClient = db.clients.find(c =>
+      (c.data?.children || []).some(ch => ch.id === requestedChildId || (requestedChildId === 'child_1' && (ch.name?.toLowerCase().includes('vick') || ch.id === 'child_vicky_diego')))
+    );
+  }
+
+  // 4. Fallback inteligente: Si hay una familia real activa (con celulares reales vinculados), priorizarla sobre la demo
+  if (!matchedClient && Array.isArray(db.clients) && db.clients.length > 1) {
+    const realClient = db.clients.find(c => c.id !== 'client_default' && (c.data?.children || []).some(ch => (ch.devices || []).length > 0));
+    if (realClient) matchedClient = realClient;
+  }
+
+  // 5. Fallback por compatibilidad: primer cliente (cliente por defecto)
   if (!matchedClient && Array.isArray(db.clients) && db.clients.length > 0) {
     matchedClient = db.clients[0];
   }
@@ -1340,7 +1354,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const childId = body.childId || tenantDb.activeChildId || 'child_user_1';
-      let child = (tenantDb.children || []).find(c => c.id === childId);
+      let child = (tenantDb.children || []).find(c => c.id === childId || (childId === 'child_1' && (c.name?.toLowerCase().includes('vick') || c.id === 'child_vicky_diego')));
       if (!child && (tenantDb.children || []).length > 0) {
         child = tenantDb.children[0];
       }
