@@ -1,0 +1,87 @@
+version: '3.8'
+
+# FamilyGuard 2.0 — Production Coolify Stack
+# Completely isolated from legacy services (Sensei, etc.)
+# PostgreSQL and Redis live in private internal networks only.
+
+services:
+  familyguard-postgres:
+    image: postgres:16-alpine
+    container_name: fg2_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fg_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fg_secure_pass_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-familyguard_prod}
+    volumes:
+      - fg2_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fg_admin} -d ${POSTGRES_DB:-familyguard_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fg2-private-net
+
+  familyguard-redis:
+    image: redis:7-alpine
+    container_name: fg2_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - fg2_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fg2-private-net
+
+  familyguard-backend:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/Dockerfile.backend
+    container_name: fg2_backend
+    restart: unless-stopped
+    depends_on:
+      familyguard-postgres:
+        condition: service_healthy
+      familyguard-redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-fg_admin}:${POSTGRES_PASSWORD:-fg_secure_pass_2026}@familyguard-postgres:5432/${POSTGRES_DB:-familyguard_prod}?schema=public"
+      REDIS_HOST: familyguard-redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+    networks:
+      - fg2-private-net
+      - coolify
+    labels:
+      - "coolify.managed=true"
+
+  familyguard-parent-web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.parent-web
+    container_name: fg2_parent_web
+    restart: unless-stopped
+    networks:
+      - coolify
+    labels:
+      - "coolify.managed=true"
+
+volumes:
+  fg2_pgdata:
+    name: fg2_prod_postgres_data
+  fg2_redisdata:
+    name: fg2_prod_redis_data
+
+networks:
+  fg2-private-net:
+    driver: bridge
+    internal: true # Security: prevents external internet access to DB/Redis
+  coolify:
+    external: true
