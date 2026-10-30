@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { ChildrenModule } from './children/children.module';
 import { DevicesModule } from './devices/devices.module';
 import { PoliciesModule } from './policies/policies.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { PoliciesModule } from './policies/policies.module';
     ChildrenModule,
     DevicesModule,
     PoliciesModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
