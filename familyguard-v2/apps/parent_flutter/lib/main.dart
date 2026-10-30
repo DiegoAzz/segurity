@@ -162,6 +162,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Future<void> _fetchFamilyData({bool silent = false}) async {
+    if (_isActionInProgress) return;
     try {
       final res = await http.get(Uri.parse('/api/data'));
       if (res.statusCode == 200) {
@@ -254,13 +255,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   Future<void> _toggleInstantLock() async {
     if (_isActionInProgress) return;
-    _isActionInProgress = true;
 
     final targetLock = !_currentChild.instantLockActive;
     final childId = _currentChild.id;
     final childName = _currentChild.name;
 
     setState(() {
+      _isActionInProgress = true;
       _currentChild.instantLockActive = targetLock;
     });
 
@@ -325,7 +326,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         );
       }
     } finally {
-      _isActionInProgress = false;
+      if (mounted) {
+        setState(() {
+          _isActionInProgress = false;
+        });
+      }
     }
   }
 
@@ -625,7 +630,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: _isActionInProgress ? null : _toggleInstantLock,
-                child: Text(isLocked ? 'Reanudar Acceso' : 'Bloquear Ahora'),
+                child: _isActionInProgress
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(isLocked ? 'Reanudar Acceso' : 'Bloquear Ahora'),
               ),
             ],
           ),
