@@ -1,0 +1,227 @@
+// FamilyGuard 2.0 - Core Database Schema
+// Multi-tenant, isolated by Family, with strict device policy versioning and audit trails.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  PARENT
+  CHILD
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PlanTier {
+  STARTER
+  PRO_FAMILY
+  ENTERPRISE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum DeviceEnrollmentStatus {
+  PAIRING_PENDING
+  ACTIVE
+  REVOKED
+  SUSPENDED
+}
+
+model Family {
+  id            String             @id @default(uuid())
+  name          String
+  familyPin     String             // 6-digit family authorization PIN
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  users         User[]
+  children      Child[]
+  subscription  Subscription?
+  auditLogs     AuditLog[]
+
+  @@map("families")
+}
+
+model User {
+  id            String     @id @default(uuid())
+  familyId      String?
+  family        Family?    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  email         String     @unique
+  passwordHash  String
+  name          String
+  role          Role       @default(PARENT)
+  phoneNumber   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  auditLogs     AuditLog[]
+
+  @@index([familyId])
+  @@map("users")
+}
+
+model Child {
+  id              String            @id @default(uuid())
+  familyId        String
+  family          Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  name            String
+  avatar          String?           @default("avatar_1")
+  age             Int?
+  pairingCode     String            @unique // Unique short pairing code
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  devices         Device[]
+  policies        Policy[]
+  requests        TimeRequest[]
+  usageLogs       UsageLog[]
+
+  @@index([familyId])
+  @@map("children")
+}
+
+model Device {
+  id                  String                 @id @default(uuid())
+  childId             String
+  child               Child                  @relation(fields: [childId], references: [id], onDelete: Cascade)
+  deviceFingerprint   String                 @unique // Unique hardware/installation ID
+  modelName           String
+  manufacturer        String
+  osVersion           String                 // e.g. "Android 15"
+  appVersion          String                 // e.g. "2.0.0"
+  fcmToken            String?
+  enrollmentStatus    DeviceEnrollmentStatus @default(ACTIVE)
+  lastSeenAt          DateTime               @default(now())
+  batteryLevel        Int?
+  isOnline            Boolean                @default(false)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  policyAcks          PolicyAck[]
+  requests            TimeRequest[]
+  usageLogs           UsageLog[]
+
+  @@index([childId])
+  @@map("devices")
+}
+
+model Policy {
+  id                  String       @id @default(uuid())
+  childId             String
+  child               Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  version             Int          @default(1) // Monotonically increasing version counter
+  instantLockActive   Boolean      @default(false)
+  dailyLimitMinutes   Int          @default(120) // Default 2 hours
+  schoolScheduleActive Boolean     @default(false)
+  schoolStart         String?      // HH:mm format (e.g. "08:00")
+  schoolEnd           String?      // HH:mm format (e.g. "14:00")
+  bedtimeScheduleActive Boolean    @default(false)
+  bedtimeStart        String?      // HH:mm format (e.g. "21:00")
+  bedtimeEnd          String?      // HH:mm format (e.g. "06:00")
+  rawRulesJson        Json?        // Detailed per-app blocking rules and categories
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  policyAcks          PolicyAck[]
+
+  @@unique([childId, version])
+  @@index([childId])
+  @@map("policies")
+}
+
+model PolicyAck {
+  id              String      @id @default(uuid())
+  policyId        String
+  policy          Policy      @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  deviceId        String
+  device          Device      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  policyVersion   Int
+  appliedState    String      // "APPLIED", "REJECTED_STALE", "ERROR"
+  appliedAt       DateTime    @default(now())
+  details         String?
+
+  @@index([deviceId, policyVersion])
+  @@map("policy_acks")
+}
+
+model TimeRequest {
+  id                String         @id @default(uuid())
+  childId           String
+  child             Child          @relation(fields: [childId], references: [id], onDelete: Cascade)
+  deviceId          String
+  device            Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  requestedMinutes  Int            @default(30)
+  message           String?
+  status            RequestStatus  @default(PENDING)
+  resolvedAt        DateTime?
+  resolvedBy        String?        // Parent User ID
+  createdAt         DateTime       @default(now())
+
+  @@index([childId, status])
+  @@map("time_requests")
+}
+
+model UsageLog {
+  id              String      @id @default(uuid())
+  childId         String
+  child           Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  deviceId        String
+  device          Device      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  packageName     String
+  appName         String?
+  durationSeconds Int
+  recordedDate    DateTime    // Daily bucket
+  createdAt       DateTime    @default(now())
+
+  @@index([childId, recordedDate])
+  @@map("usage_logs")
+}
+
+model Subscription {
+  id              String              @id @default(uuid())
+  familyId        String              @unique
+  family          Family              @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  tier            PlanTier            @default(STARTER)
+  status          SubscriptionStatus  @default(TRIAL)
+  maxChildren     Int                 @default(3)
+  maxDevices      Int                 @default(5)
+  trialEndsAt     DateTime?
+  currentPeriodEnd DateTime?
+  externalSubId   String?             // Stripe / MercadoPago / Wompi subscription ID
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("subscriptions")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  familyId    String?
+  family      Family?     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action      String      // e.g. "POLICY_CHANGED", "DEVICE_LOCKED", "PIN_RESET"
+  details     Json?
+  ipAddress   String?
+  createdAt   DateTime    @default(now())
+
+  @@index([familyId])
+  @@map("audit_logs")
+}
