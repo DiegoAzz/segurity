@@ -1069,7 +1069,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       saveDatabase(db);
-      console.log([HIJOS] Perfil actualizado:  (a) para \);
+      console.log(`[HIJOS] Perfil actualizado: ${child.name} (${child.age}a) para ${child.id}`);
       return sendJson(res, 200, { success: true, child, children: tenantDb.children });
     }
 
